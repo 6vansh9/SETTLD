@@ -126,3 +126,11 @@
 **Notes for later:** the receipt card is a placeholder (M7, `@vercel/og`). Edit prefill for a foreign expense labels the stored rate "your rate". Some UPI apps (notably GPay) can refuse P2P payments opened from links; the flow then falls back to "No" → Mark as paid.
 
 **Next: Milestone 6 — Realtime layer** (Supabase Realtime subscriptions, optimistic updates, activity feed, presence pill).
+
+### Deploy + sign-in fixes (2026-10-04)
+
+- **Hosting:** Vercel project `settld` (team "Vansh's projects"), production https://settld-omega.vercel.app, auto-deploys on push to `main`. Env vars set for Production/Preview/Development; `SUPABASE_SERVICE_ROLE_KEY` is a Sensitive secret. Run the CLI with `npx vercel` (the global npm install needs admin rights here).
+- **Localhost redirect after Google sign-in:** caused by Supabase's **Site URL = http://localhost:3001** with the production callback not allowlisted (Supabase falls back to Site URL). Proven with a read-only probe (`/auth/v1/verify` with a bogus token returns the fallback). Fix is in the Supabase dashboard (URL Configuration). Code and Vercel env contain no localhost.
+- **Auth return:** `lib/auth-return.ts` handles `/auth/callback` and `/auth/confirm`: PKCE `?code=`, template `?token_hash=`, and Supabase `?error=` params → clear messages (`lib/auth-flow.ts`, tested). Redirects use `requestOrigin()` (x-forwarded-host on Vercel, validated; tested). Failures are logged with a reason, never tokens. Middleware skips `/auth/*`.
+- **Email code:** the email sheet accepts the 6-digit OTP (`verifyOtp`), which works in the home-screen app and when the link opens in another browser. It needs `{{ .Token }}` in the Supabase email templates.
+- **Account switching:** Google uses `prompt: select_account`. `components/providers/AuthSync.tsx` clears the TanStack cache, app storage (theme kept) and privacy blur whenever the user changes, and hard-navigates when a known account is replaced or signed out. Sign-out uses `signOutAndReset` (`lib/session-reset.ts`). The server Supabase client fetches with `cache: "no-store"`.
