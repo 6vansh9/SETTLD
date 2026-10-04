@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens (PRD.md › Design system › Color).
+ * Each color has a hex variable (--ink) and an RGB-channel twin (--ink-rgb) for Tailwind opacity modifiers.
+ * Pastels, coral and --on-pastel are identical in both themes.
+ */
+:root {
+  color-scheme: light;
+
+  --bg: #f4f1ec;
+  --bg-rgb: 244 241 236;
+  --ink: #0e0e0e;
+  --ink-rgb: 14 14 14;
+  --ink-faded: rgb(14 14 14 / 0.35);
+  --surface: #ffffff;
+  --surface-rgb: 255 255 255;
+  --owe: #e5484d;
+  --owe-rgb: 229 72 77;
+  --owed: #1f9d55;
+  --owed-rgb: 31 157 85;
+
+  --pink: #f6c9e4;
+  --pink-rgb: 246 201 228;
+  --sky: #7fb2f0;
+  --sky-rgb: 127 178 240;
+  --mint: #c8f2c2;
+  --mint-rgb: 200 242 194;
+  --butter: #f7d58a;
+  --butter-rgb: 247 213 138;
+  --lilac: #d7c6f5;
+  --lilac-rgb: 215 198 245;
+  --peach: #ffc7a8;
+  --peach-rgb: 255 199 168;
+  --coral: #ee6a4b;
+  --coral-rgb: 238 106 75;
+  /* Text on pastels and coral is always dark, in both themes. */
+  --on-pastel: #0e0e0e;
+  --on-pastel-rgb: 14 14 14;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --bg: #0e0e0e;
+  --bg-rgb: 14 14 14;
+  --ink: #f4f1ec;
+  --ink-rgb: 244 241 236;
+  --ink-faded: rgb(244 241 236 / 0.35);
+  --surface: #1a1a1a;
+  --surface-rgb: 26 26 26;
+  --owe: #ff6369;
+  --owe-rgb: 255 99 105;
+  --owed: #3dd68c;
+  --owed-rgb: 61 214 140;
+}
+
+/* System default before JS runs (or without JS): follow the OS unless a theme class is set. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    color-scheme: dark;
+
+    --bg: #0e0e0e;
+    --bg-rgb: 14 14 14;
+    --ink: #f4f1ec;
+    --ink-rgb: 244 241 236;
+    --ink-faded: rgb(244 241 236 / 0.35);
+    --surface: #1a1a1a;
+    --surface-rgb: 26 26 26;
+    --owe: #ff6369;
+    --owe-rgb: 255 99 105;
+    --owed: #3dd68c;
+    --owed-rgb: 61 214 140;
+  }
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg font-sans text-ink antialiased;
+    min-height: 100dvh;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Micro labels: Inter 10–11px, 600, uppercase, 0.08em tracking */
+  .micro {
+    @apply font-sans text-[11px] font-semibold uppercase leading-none tracking-[0.08em];
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

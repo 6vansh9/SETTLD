@@ -1,0 +1,318 @@
+"use client";
+
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ChevronRight, LogOut } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Avatar, Button, Sheet, Switch, ThemeToggle, Title } from "@/components/ui";
+import { CURRENCIES, type CurrencyCode } from "@/lib/money";
+import type { Pastel } from "@/lib/pastels";
+import { useProfile, useUpdateProfile } from "@/lib/queries/profile";
+import { createClient } from "@/lib/supabase/client";
+import type { Profile } from "@/lib/supabase/types";
+import { isValidUpiId, normalizeUpiId } from "@/lib/upi";
+import { ColorPicker } from "./ColorPicker";
+import { CurrencyPicker } from "./CurrencyPicker";
+import { TextField } from "./TextField";
+
+type Editing = "name" | "color" | "upi" | "currency" | null;
+
+export function ProfileScreen({ initialProfile, email }: { initialProfile: Profile; email: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { data } = useProfile(initialProfile);
+  const profile = data ?? initialProfile;
+  const update = useUpdateProfile();
+  const [editing, setEditing] = useState<Editing>(null);
+  const [signingOut, setSigningOut] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const save = async (patch: Parameters<typeof update.mutateAsync>[0]) => {
+    setSaveError(null);
+    try {
+      await update.mutateAsync(patch);
+      setEditing(null);
+    } catch {
+      setSaveError("Couldn't save. Check your connection and try again.");
+    }
+  };
+
+  const signOut = async () => {
+    setSigningOut(true);
+    await createClient().auth.signOut();
+    queryClient.clear();
+    router.replace("/");
+    router.refresh();
+  };
+
+  return (
+    <main className="mx-auto w-full max-w-app px-5 pb-[calc(32px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
+      <header className="flex h-11 items-center">
+        <Link
+          href="/groups"
+          aria-label="Back to groups"
+          className="-ml-2 flex size-11 items-center justify-center rounded-full hover:bg-ink/5"
+        >
+          <ArrowLeft className="size-5" strokeWidth={2.25} />
+        </Link>
+      </header>
+
+      <div className="mt-4 flex items-end justify-between gap-4">
+        <Title line1="YOUR" line2="PROFILE" size="lg" />
+        <button
+          type="button"
+          onClick={() => setEditing("color")}
+          aria-label="Change avatar color"
+          className="rounded-full"
+        >
+          <Avatar name={profile.name} color={profile.avatar_color} size="lg" className="size-20 text-[26px]" />
+        </button>
+      </div>
+
+      {saveError && !editing && (
+        <p role="alert" className="mt-4 text-[14px] font-medium text-owe">
+          {saveError}
+        </p>
+      )}
+
+      <Group label="You">
+        <Row label="Name" value={profile.name} onClick={() => setEditing("name")} />
+        <Row label="Email" value={email} />
+        <Row
+          label="UPI ID"
+          value={profile.upi_id ?? "Add for 1-tap payback"}
+          faded={!profile.upi_id}
+          onClick={() => setEditing("upi")}
+        />
+      </Group>
+
+      <Group label="Money">
+        <Row
+          label="Default currency"
+          value={`${CURRENCIES[profile.default_currency].symbol} ${profile.default_currency}`}
+          onClick={() => setEditing("currency")}
+        />
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
+          <span>
+            <span className="block text-[15px] font-semibold">Blur amounts on open</span>
+            <span className="mt-0.5 block text-[13px] font-medium text-ink/50">Tap any amount to peek.</span>
+          </span>
+          <Switch
+            label="Blur amounts on open"
+            checked={profile.privacy_blur}
+            onChange={(privacy_blur) => save({ privacy_blur })}
+          />
+        </div>
+      </Group>
+
+      <Group label="Look">
+        <div className="flex items-center justify-between gap-4 px-4 py-3">
+          <span className="text-[15px] font-semibold">Theme</span>
+          <ThemeToggle />
+        </div>
+      </Group>
+
+      <Button variant="secondary" fullWidth className="mt-10 h-14" onClick={signOut} disabled={signingOut}>
+        <LogOut className="size-5" strokeWidth={2.25} />
+        {signingOut ? "Signing out…" : "Sign out"}
+      </Button>
+
+      <NameSheet
+        open={editing === "name"}
+        initial={profile.name}
+        saving={update.isPending}
+        error={saveError}
+        onClose={() => setEditing(null)}
+        onSave={(name) => save({ name })}
+      />
+      <ColorSheet
+        open={editing === "color"}
+        name={profile.name}
+        initial={profile.avatar_color}
+        saving={update.isPending}
+        onClose={() => setEditing(null)}
+        onSave={(avatar_color) => save({ avatar_color })}
+      />
+      <UpiSheet
+        open={editing === "upi"}
+        initial={profile.upi_id ?? ""}
+        saving={update.isPending}
+        error={saveError}
+        onClose={() => setEditing(null)}
+        onSave={(upi_id) => save({ upi_id })}
+      />
+      <CurrencySheet
+        open={editing === "currency"}
+        initial={profile.default_currency}
+        saving={update.isPending}
+        onClose={() => setEditing(null)}
+        onSave={(default_currency) => save({ default_currency })}
+      />
+    </main>
+  );
+}
+
+function Group({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-8">
+      <h2 className="micro mb-3 text-ink-faded">{label}</h2>
+      <div className="divide-y-[1.5px] divide-ink/[0.06] overflow-hidden rounded-card border-[1.5px] border-ink/[0.08] bg-surface">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function Row({
+  label,
+  value,
+  faded,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  faded?: boolean;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      <span className="shrink-0 text-[15px] font-semibold">{label}</span>
+      <span className={`ml-auto truncate text-[15px] font-medium ${faded ? "text-ink/40" : "text-ink/70"}`}>
+        {value}
+      </span>
+      {onClick && <ChevronRight className="size-4 shrink-0 text-ink/30" strokeWidth={2.5} />}
+    </>
+  );
+  return onClick ? (
+    <button type="button" onClick={onClick} className="flex min-h-14 w-full items-center gap-3 px-4 text-left hover:bg-ink/[0.03]">
+      {content}
+    </button>
+  ) : (
+    <div className="flex min-h-14 items-center gap-3 px-4">{content}</div>
+  );
+}
+
+interface EditSheetProps<T> {
+  open: boolean;
+  initial: T;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (value: T) => void;
+}
+
+// Each sheet's draft state lives in its body, which mounts when the sheet opens,
+// so a cancelled edit never leaks into the next one.
+
+function NameSheet({ open, onClose, ...rest }: EditSheetProps<string> & { error: string | null }) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Name">
+      <NameForm {...rest} />
+    </Sheet>
+  );
+}
+
+function NameForm({ initial, saving, error, onSave }: Omit<EditSheetProps<string>, "open" | "onClose"> & { error: string | null }) {
+  const [value, setValue] = useState(initial);
+  const trimmed = value.trim();
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (trimmed) onSave(trimmed);
+      }}
+    >
+      <TextField label="Your name" large autoFocus maxLength={40} value={value} onChange={(e) => setValue(e.target.value)} error={error} />
+      <Button type="submit" fullWidth className="mt-6" disabled={!trimmed || saving}>
+        {saving ? "Saving…" : "Save"}
+      </Button>
+    </form>
+  );
+}
+
+function ColorSheet({ open, onClose, ...rest }: EditSheetProps<Pastel> & { name: string }) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Avatar color">
+      <ColorForm {...rest} />
+    </Sheet>
+  );
+}
+
+function ColorForm({ name, initial, saving, onSave }: Omit<EditSheetProps<Pastel>, "open" | "onClose"> & { name: string }) {
+  const [value, setValue] = useState(initial);
+  return (
+    <>
+      <ColorPicker name={name} value={value} onChange={setValue} />
+      <Button fullWidth className="mt-6" disabled={saving} onClick={() => onSave(value)}>
+        {saving ? "Saving…" : "Save"}
+      </Button>
+    </>
+  );
+}
+
+type UpiProps = Omit<EditSheetProps<string | null>, "initial"> & { initial: string; error: string | null };
+
+function UpiSheet({ open, onClose, ...rest }: UpiProps) {
+  return (
+    <Sheet open={open} onClose={onClose} title="UPI ID">
+      <UpiForm {...rest} />
+    </Sheet>
+  );
+}
+
+function UpiForm({ initial, saving, error, onSave }: Omit<UpiProps, "open" | "onClose">) {
+  const [value, setValue] = useState(initial);
+  const [invalid, setInvalid] = useState(false);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (value.trim() && !isValidUpiId(value)) {
+          setInvalid(true);
+          return;
+        }
+        onSave(normalizeUpiId(value));
+      }}
+    >
+      <TextField
+        label="UPI ID"
+        autoFocus
+        inputMode="email"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder="name@okhdfcbank"
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setInvalid(false);
+        }}
+        error={invalid ? "UPI IDs look like name@bank, e.g. vansh@okhdfcbank." : error}
+        hint="Leave empty to remove it."
+      />
+      <Button type="submit" fullWidth className="mt-6" disabled={saving}>
+        {saving ? "Saving…" : "Save"}
+      </Button>
+    </form>
+  );
+}
+
+function CurrencySheet({ open, onClose, ...rest }: EditSheetProps<CurrencyCode>) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Default currency">
+      <CurrencyForm {...rest} />
+    </Sheet>
+  );
+}
+
+function CurrencyForm({ initial, saving, onSave }: Omit<EditSheetProps<CurrencyCode>, "open" | "onClose">) {
+  const [value, setValue] = useState(initial);
+  return (
+    <>
+      <CurrencyPicker value={value} onChange={setValue} />
+      <Button fullWidth className="mt-6" disabled={saving} onClick={() => onSave(value)}>
+        {saving ? "Saving…" : "Save"}
+      </Button>
+    </>
+  );
+}
