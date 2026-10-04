@@ -94,10 +94,14 @@ Every money amount splits into a strong part and a faded part. The currency symb
 | `--lilac` | #D7C6F5 | #D7C6F5 | Group color |
 | `--peach` | #FFC7A8 | #FFC7A8 | Group color |
 | `--coral` | #EE6A4B | #EE6A4B | Primary CTA (Settle Up) |
-| `--owe` | #E5484D | #FF6369 | You owe |
-| `--owed` | #1F9D55 | #3DD68C | You're owed |
+| `--owe` | #E5484D | #FF6369 | You owe: fills and chips only |
+| `--owed` | #1F9D55 | #3DD68C | You're owed: fills and chips only |
+| `--owe-text` | #C42B30 | #FF6369 | You owe: text (labels, amounts) |
+| `--owed-text` | #157A41 | #3DD68C | You're owed: text (labels, amounts) |
 
 Pastels stay pastel in dark mode, with black text on top, so cards glow against the dark background. Each group picks one pastel; that color tints its card, its header, and its expense cards.
+
+**Owe/owed and contrast.** `--owe` and `--owed` are for fills and chips only: as text on the light background they fall below WCAG AA (about 3.5:1 and 3.1:1). Red and green text uses the text-safe `--owe-text` and `--owed-text`, which reach at least 4.5:1 on `--bg` and `--surface` in both modes. Status on pastel cards (for example "You owe ₹500" on a group card) is never red or green text: it's a chip filled with `--owe`, `--owed`, or a faint ink tint for "Settled up", with dark text on top.
 
 ### Cards
 
