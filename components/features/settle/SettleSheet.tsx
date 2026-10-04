@@ -188,7 +188,7 @@ export function SettleSheet({
             )}
 
             {error && (
-              <p role="alert" className="mt-4 text-center text-[14px] font-medium text-owe">
+              <p role="alert" className="mt-4 text-center text-[14px] font-medium text-owe-ink">
                 {error}
               </p>
             )}

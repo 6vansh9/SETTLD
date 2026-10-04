@@ -5,8 +5,9 @@ import { Activity, ChevronDown, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Amount, AnimatedAmount, Avatar, Button, CardStack, PrivacyToggle, Title } from "@/components/ui";
-import { convertedTotal, myNetInGroup, overallTotals } from "@/lib/balances";
+import { myNetInGroup, oweOwedTotals } from "@/lib/balances";
 import { partitionGroups } from "@/lib/groups";
+import { formatAmount } from "@/lib/money";
 import type { GroupWithMembers } from "@/lib/groups-data";
 import { fade, spring } from "@/lib/motion";
 import { useAllBalances } from "@/lib/queries/expenses";
@@ -42,7 +43,7 @@ export function GroupsHome({
     me.id,
   );
   const { active, archived } = partitionGroups(groups);
-  const overall = convertedTotal(overallTotals(groups, balances, me.id, me.default_currency), me.default_currency, rates);
+  const totals = oweOwedTotals(groups, balances, me.id, me.default_currency, rates);
   const netIn = (g: GroupWithMembers) => myNetInGroup(g, balances, me.id);
 
   return (
@@ -86,36 +87,46 @@ export function GroupsHome({
         </div>
       ) : (
         <>
-          <div className="mt-6">
-            <p className="micro text-ink-faded">
-              Overall · {overall.total > 0 ? "you're owed" : overall.total < 0 ? "you owe" : "all settled"}
-              {overall.approx && " · approx."}
-            </p>
-            <span className="mt-2 flex items-baseline gap-2">
-              {overall.approx && (
-                <span aria-hidden className="font-num text-[40px] leading-none text-ink-faded">
-                  ≈
-                </span>
+          {/* What I owe and what I'm owed, side by side (each group converted separately). */}
+          <section aria-label="Your balances" className="mt-6">
+            <div className="grid grid-cols-2 gap-3">
+              <Figure label="You owe" amount={totals.owe} currency={me.default_currency} approx={totals.approx} tone="owe" />
+              <Figure label="You're owed" amount={totals.owed} currency={me.default_currency} approx={totals.approx} tone="owed" />
+            </div>
+            <p
+              className={`mt-3 flex flex-wrap items-baseline gap-1.5 text-[14px] font-semibold ${
+                totals.net > 0 ? "text-owed-ink" : totals.net < 0 ? "text-owe-ink" : "text-ink/50"
+              }`}
+            >
+              {totals.net === 0 ? (
+                "All settled up"
+              ) : (
+                <>
+                  {totals.net > 0 ? "Overall you're owed" : "Overall you owe"}
+                  {totals.approx && <span aria-hidden>≈</span>}
+                  <AnimatedAmount amount={Math.abs(totals.net)} currency={me.default_currency} size="sm" className="text-[18px]" />
+                  {totals.approx && <span className="text-[12px] font-medium text-ink/50">· approx.</span>}
+                </>
               )}
-              <AnimatedAmount
-                amount={Math.abs(overall.total)}
-                currency={me.default_currency}
-                size="xl"
-                sign={overall.total > 0 ? "owed" : overall.total < 0 ? "owe" : undefined}
-              />
-            </span>
-            {overall.approx && (
-              <p className="mt-1 text-[12px] font-medium text-ink/50">Other currencies converted at today&apos;s rates.</p>
-            )}
+            </p>
+            {totals.approx && <p className="mt-1 text-[12px] font-medium text-ink/50">Other currencies converted at today&apos;s rates.</p>}
             {/* Only if no rate exists at all (API down and nothing cached): kept separate, exact. */}
-            {overall.unconverted.map((o) => (
-              <p key={o.currency} className="mt-2 flex items-baseline gap-1.5 text-[13px] font-semibold text-ink/60">
-                <span>{o.net > 0 ? "+ owed" : "+ you owe"}</span>
-                <Amount amount={Math.abs(o.net)} currency={o.currency} size="sm" sign={o.net > 0 ? "owed" : "owe"} />
-                <span>in {o.currency} groups</span>
+            {totals.unconverted.map((u) => (
+              <p key={u.currency} className="mt-1 flex flex-wrap items-baseline gap-1.5 text-[12px] font-semibold text-ink/60">
+                Not converted:
+                {u.owe > 0 && (
+                  <>
+                    you owe <Amount amount={u.owe} currency={u.currency} size="sm" sign="owe" className="text-[15px]" />
+                  </>
+                )}
+                {u.owed > 0 && (
+                  <>
+                    you&apos;re owed <Amount amount={u.owed} currency={u.currency} size="sm" sign="owed" className="text-[15px]" />
+                  </>
+                )}
               </p>
             ))}
-          </div>
+          </section>
 
           <Button fullWidth className="mt-6" onClick={() => setCreating(true)}>
             <Plus className="size-5" strokeWidth={2.5} />
@@ -169,5 +180,42 @@ export function GroupsHome({
 
       <CreateGroupSheet open={creating} onClose={() => setCreating(false)} defaultCurrency={me.default_currency} />
     </main>
+  );
+}
+
+/** One of Home's two big figures. Red/green use the AA-safe text tokens (see lib/contrast.test.ts). */
+function Figure({
+  label,
+  amount,
+  currency,
+  approx,
+  tone,
+}: {
+  label: string;
+  amount: number;
+  currency: Profile["default_currency"];
+  approx: boolean;
+  tone: "owe" | "owed";
+}) {
+  const ink = tone === "owe" ? "text-owe-ink" : "text-owed-ink";
+  // Two figures share a 390px row: step down a size once the amount gets long (₹5,052.80).
+  const len = formatAmount(amount, currency).length;
+  const size = len > 11 ? "sm" : len > 8 ? "md" : "lg";
+  return (
+    <div className="rounded-card border-[1.5px] border-ink/[0.08] bg-surface p-4">
+      <p className={`micro ${amount === 0 ? "text-ink-faded" : ink}`}>
+        {label}
+        {approx && amount > 0 && <span title="Approximate: converted at today's rates"> ≈</span>}
+      </p>
+      <span className="mt-2 flex min-w-0 items-baseline overflow-hidden">
+        <AnimatedAmount
+          amount={amount}
+          currency={currency}
+          size={size}
+          sign={amount === 0 ? undefined : tone}
+          className={amount === 0 ? "opacity-40" : undefined}
+        />
+      </span>
+    </div>
   );
 }

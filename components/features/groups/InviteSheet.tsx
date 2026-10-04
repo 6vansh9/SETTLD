@@ -92,7 +92,7 @@ function InviteBody({ group, isAdmin }: { group: GroupWithMembers; isAdmin: bool
       </div>
 
       {error ? (
-        <p role="alert" className="mt-4 text-[14px] font-medium text-owe">
+        <p role="alert" className="mt-4 text-[14px] font-medium text-owe-ink">
           {friendlyError(error)}
         </p>
       ) : !isLoading && !token ? (
@@ -107,7 +107,7 @@ function InviteBody({ group, isAdmin }: { group: GroupWithMembers; isAdmin: bool
         aria-label="Copy invite link"
       >
         <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink/70">{url || "Loading link…"}</span>
-        {copied ? <Check className="size-5 text-owed" strokeWidth={2.5} /> : <Copy className="size-5 text-ink/50" />}
+        {copied ? <Check className="size-5 text-owed-ink" strokeWidth={2.5} /> : <Copy className="size-5 text-ink/50" />}
       </button>
       <p aria-live="polite" className="sr-only">
         {copied ? "Copied" : ""}

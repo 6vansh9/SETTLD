@@ -95,3 +95,59 @@ export function convertedTotal(
   }
   return { total, approx, unconverted };
 }
+
+export interface OweOwedTotals {
+  /** Sum of every group where my balance is negative, in my default currency (positive number). */
+  owe: number;
+  /** Sum of every group where my balance is positive, in my default currency. */
+  owed: number;
+  /** owed − owe */
+  net: number;
+  /** True when any group's balance was converted from another currency. */
+  approx: boolean;
+  /** Groups in currencies with no rate at all (API down, nothing cached): kept out of the totals. */
+  unconverted: { currency: CurrencyCode; owe: number; owed: number }[];
+}
+
+/**
+ * Home's two figures (M6 UX): what I owe and what I'm owed, group by group, each group converted
+ * separately into my default currency (a debt in one group never cancels a credit in another here).
+ */
+export function oweOwedTotals(
+  groups: readonly GroupLike[],
+  balances: readonly BalanceLike[],
+  userId: string,
+  defaultCurrency: CurrencyCode,
+  rates: Record<string, string | undefined> = {},
+): OweOwedTotals {
+  let owe = 0;
+  let owed = 0;
+  let approx = false;
+  const unconverted = new Map<CurrencyCode, { owe: number; owed: number }>();
+  for (const g of groups) {
+    const net = myNetInGroup(g, balances.filter((b) => b.group_id === g.id), userId);
+    if (net === 0) continue;
+    let value = Math.abs(net);
+    if (g.base_currency !== defaultCurrency) {
+      const scaled = parseRate(rates[`${g.base_currency}:${defaultCurrency}`] ?? "");
+      if (!scaled) {
+        const u = unconverted.get(g.base_currency) ?? { owe: 0, owed: 0 };
+        if (net < 0) u.owe += value;
+        else u.owed += value;
+        unconverted.set(g.base_currency, u);
+        continue;
+      }
+      value = convertMinor(value, scaled);
+      approx = true;
+    }
+    if (net < 0) owe += value;
+    else owed += value;
+  }
+  return {
+    owe,
+    owed,
+    net: owed - owe,
+    approx,
+    unconverted: [...unconverted].map(([currency, v]) => ({ currency, ...v })).sort((a, b) => a.currency.localeCompare(b.currency)),
+  };
+}

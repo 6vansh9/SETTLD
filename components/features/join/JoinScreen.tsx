@@ -87,7 +87,7 @@ export function JoinScreen({
       <div className="flex-1" />
 
       {error && (
-        <p role="alert" className="mt-6 text-center text-[14px] font-medium text-owe">
+        <p role="alert" className="mt-6 text-center text-[14px] font-medium text-owe-ink">
           {error}
         </p>
       )}

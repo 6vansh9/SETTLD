@@ -244,7 +244,7 @@ export function OnboardingFlow({
       </motion.section>
 
       {error && step !== "upi" && (
-        <p role="alert" className="mb-3 text-center text-[14px] font-medium text-owe">
+        <p role="alert" className="mb-3 text-center text-[14px] font-medium text-owe-ink">
           {error}
         </p>
       )}

@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { fade, spring } from "@/lib/motion";
 
 const DISMISS_OFFSET = 120;
+const SIDE_PADDING = "pl-[max(20px,env(safe-area-inset-left))] pr-[max(20px,env(safe-area-inset-right))]";
 const DISMISS_VELOCITY = 500;
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -17,6 +18,10 @@ export interface SheetProps {
   /** Accessible name; also rendered as a micro label unless hideTitle is set. */
   title: string;
   hideTitle?: boolean;
+  /** Fixed above the scrolling body (e.g. the amount): always fully visible. */
+  header?: React.ReactNode;
+  /** Fixed below the scrolling body (e.g. Save): never covers content, clears the home indicator. */
+  footer?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }
@@ -32,7 +37,7 @@ export function Sheet(props: SheetProps) {
   );
 }
 
-function SheetPanel({ onClose, title, hideTitle, children, className }: SheetProps) {
+function SheetPanel({ onClose, title, hideTitle, header, footer, children, className }: SheetProps) {
   const reduce = useReducedMotion();
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -104,8 +109,9 @@ function SheetPanel({ onClose, title, hideTitle, children, className }: SheetPro
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "relative z-10 max-h-[92dvh] w-full max-w-app overflow-y-auto rounded-t-[28px] border-[1.5px] border-b-0 border-ink/[0.08] bg-surface pt-3 text-ink outline-none",
-          "pb-[calc(20px+env(safe-area-inset-bottom))] pl-[max(20px,env(safe-area-inset-left))] pr-[max(20px,env(safe-area-inset-right))]",
+          // Three regions: fixed top (handle, title, header) · scrolling body · fixed footer.
+          // Height is capped below the safe area so the top edge never slides under the notch.
+          "relative z-10 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-12px))] w-full max-w-app flex-col overflow-hidden rounded-t-[28px] border-[1.5px] border-b-0 border-ink/[0.08] bg-surface text-ink outline-none",
           className,
         )}
         initial={reduce ? { opacity: 0 } : { y: "100%" }}
@@ -119,17 +125,34 @@ function SheetPanel({ onClose, title, hideTitle, children, className }: SheetPro
         dragElastic={{ top: 0, bottom: 0.6 }}
         onDragEnd={onDragEnd}
       >
-        <div
-          aria-hidden
-          onPointerDown={(e) => !reduce && dragControls.start(e)}
-          className="-mx-5 -mt-3 mb-1 flex cursor-grab touch-none justify-center pb-3 pt-3 active:cursor-grabbing"
-        >
-          <span className="h-1.5 w-10 rounded-full bg-ink/15" />
+        <div className={cn("shrink-0", SIDE_PADDING)}>
+          <div
+            aria-hidden
+            onPointerDown={(e) => !reduce && dragControls.start(e)}
+            className="-mx-5 mb-1 flex cursor-grab touch-none justify-center pb-3 pt-3 active:cursor-grabbing"
+          >
+            <span className="h-1.5 w-10 rounded-full bg-ink/15" />
+          </div>
+          <h2 id={titleId} className={cn("micro mb-4 text-ink-faded", hideTitle && "sr-only")}>
+            {title}
+          </h2>
+          {header && <div className="pb-3">{header}</div>}
         </div>
-        <h2 id={titleId} className={cn("micro mb-4 text-ink-faded", hideTitle && "sr-only")}>
-          {title}
-        </h2>
-        {children}
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+            SIDE_PADDING,
+            // Without a footer the body itself must clear the home indicator.
+            footer ? "pb-4" : "pb-[calc(20px+env(safe-area-inset-bottom))]",
+          )}
+        >
+          {children}
+        </div>
+        {footer && (
+          <div className={cn("shrink-0 border-t-[1.5px] border-ink/[0.06] bg-surface pt-3", SIDE_PADDING, "pb-[calc(12px+env(safe-area-inset-bottom))]")}>
+            {footer}
+          </div>
+        )}
       </motion.div>
     </div>
   );

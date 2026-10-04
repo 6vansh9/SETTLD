@@ -66,7 +66,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
       </div>
 
       {saveError && !editing && (
-        <p role="alert" className="mt-4 text-[14px] font-medium text-owe">
+        <p role="alert" className="mt-4 text-[14px] font-medium text-owe-ink">
           {saveError}
         </p>
       )}

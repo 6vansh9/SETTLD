@@ -61,7 +61,7 @@ function MembersBody({ group, myUserId, isAdmin }: { group: GroupWithMembers; my
       </ul>
 
       {status && (
-        <p role="status" className={`mt-3 text-center text-[14px] font-medium ${status.error ? "text-owe" : "text-ink/70"}`}>
+        <p role="status" className={`mt-3 text-center text-[14px] font-medium ${status.error ? "text-owe-ink" : "text-ink/70"}`}>
           {status.text}
         </p>
       )}

@@ -21,6 +21,12 @@
   --owe-rgb: 229 72 77;
   --owed: #1f9d55;
   --owed-rgb: 31 157 85;
+  /* Text-safe red/green (WCAG AA ≥ 4.5:1 on --bg and --surface; see lib/contrast.test.ts).
+     The PRD colors above are kept for fills (chips, dots, bars). */
+  --owe-ink: #c42b30;
+  --owe-ink-rgb: 196 43 48;
+  --owed-ink: #157a41;
+  --owed-ink-rgb: 21 122 65;
 
   --pink: #f6c9e4;
   --pink-rgb: 246 201 228;
@@ -55,6 +61,10 @@
   --owe-rgb: 255 99 105;
   --owed: #3dd68c;
   --owed-rgb: 61 214 140;
+  --owe-ink: #ff6369;
+  --owe-ink-rgb: 255 99 105;
+  --owed-ink: #3dd68c;
+  --owed-ink-rgb: 61 214 140;
 }
 
 /* System default before JS runs (or without JS): follow the OS unless a theme class is set. */
@@ -73,6 +83,10 @@
     --owe-rgb: 255 99 105;
     --owed: #3dd68c;
     --owed-rgb: 61 214 140;
+    --owe-ink: #ff6369;
+    --owe-ink-rgb: 255 99 105;
+    --owed-ink: #3dd68c;
+    --owed-ink-rgb: 61 214 140;
   }
 }
 

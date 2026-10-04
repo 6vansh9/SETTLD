@@ -71,7 +71,7 @@ export function AuthPanel({ next, error, mode = "signin" }: { next: string; erro
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="rounded-2xl bg-owe/10 px-4 py-3 text-center text-[14px] font-medium text-owe"
+            className="rounded-2xl bg-owe/10 px-4 py-3 text-center text-[14px] font-medium text-owe-ink"
           >
             {message}
           </motion.p>
@@ -195,7 +195,7 @@ function EmailSheet({ open, onClose, next, mode }: { open: boolean; onClose: () 
                 </Button>
               </div>
               {error && (
-                <p id="otp-error" role="alert" className="mt-2 text-[13px] font-medium text-owe">
+                <p id="otp-error" role="alert" className="mt-2 text-[13px] font-medium text-owe-ink">
                   {error}
                 </p>
               )}
@@ -250,7 +250,7 @@ function EmailSheet({ open, onClose, next, mode }: { open: boolean; onClose: () 
               className="mt-2 h-14 w-full rounded-2xl border-[1.5px] border-ink/15 bg-bg px-4 text-[17px] font-medium text-ink placeholder:text-ink/30 focus:border-ink focus:outline-none"
             />
             {error && (
-              <p id="email-error" role="alert" className="mt-2 text-[13px] font-medium text-owe">
+              <p id="email-error" role="alert" className="mt-2 text-[13px] font-medium text-owe-ink">
                 {error}
                 {noAccount && (
                   <>

@@ -84,7 +84,7 @@ function CreateGroupForm({ defaultCurrency }: { defaultCurrency: CurrencyCode })
       </div>
 
       {error && (
-        <p role="alert" className="text-center text-[14px] font-medium text-owe">
+        <p role="alert" className="text-center text-[14px] font-medium text-owe-ink">
           {error}
         </p>
       )}

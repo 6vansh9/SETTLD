@@ -83,7 +83,7 @@ export function BalancesTab({
           <span className="micro text-ink-faded">{group.simplify ? "Simplified" : "Every debt"}</span>
         </div>
         {planError ? (
-          <p className="text-[14px] font-medium text-owe">Balances don&apos;t add up. Reload the page and try again.</p>
+          <p className="text-[14px] font-medium text-owe-ink">Balances don&apos;t add up. Reload the page and try again.</p>
         ) : transfers.length === 0 ? (
           <p className="rounded-card border-[1.5px] border-dashed border-ink/15 px-4 py-6 text-center text-[15px] font-medium text-ink/60">
             Nobody owes anybody. 🎉

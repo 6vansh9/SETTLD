@@ -9,11 +9,16 @@ import { cn } from "@/lib/cn";
 import {
   draftFromExpense,
   evaluateDraft,
+  expenseResult,
+  fillPayer,
   newDraft,
+  payerFillSuggestion,
+  setPayerAmount,
+  switchPayerMode,
   toRpcArgs,
+  withAmount,
   type DraftEvaluation,
   type ExpenseDraft,
-  type ExpenseRpcArgs,
 } from "@/lib/expense-form";
 import type { ExpenseWithLines } from "@/lib/expenses-data";
 import { activeMembers, memberAvatar, type GroupWithMembers, type MemberWithProfile } from "@/lib/groups-data";
@@ -57,11 +62,13 @@ export function ExpenseEditor({
   const base = group.base_currency;
   const [draft, setDraft] = useState<ExpenseDraft>(() => newDraft(memberIds, myMemberId, undefined, base));
   const [amountOpen, setAmountOpen] = useState(false);
+  const [triedSave, setTriedSave] = useState(false);
   const clientId = useRef<string>("");
   // Mutations live here (always mounted), not in the form inside the sheet: the sheet closes
   // before the server answers, and the error toast's Retry must still work afterwards.
   const create = useCreateExpense(group.id, myUserId);
   const update = useUpdateExpense(group.id);
+  const evaluation = evaluateDraft(draft, memberIds, base);
 
   useEffect(() => {
     onTypingChange?.(open);
@@ -73,6 +80,7 @@ export function ExpenseEditor({
     clientId.current = crypto.randomUUID();
     setDraft(expense ? draftFromExpense(expense, base) : newDraft(memberIds, myMemberId, undefined, base));
     setAmountOpen(!expense);
+    setTriedSave(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when (re)opened
   }, [open, expense?.id]);
 
@@ -80,6 +88,19 @@ export function ExpenseEditor({
     // Closing the numpad before any amount was entered cancels the whole thing.
     if (draft.amount === 0) onClose();
     setAmountOpen(false);
+  };
+
+  // Optimistic: the expense is already in the list (and balances) when the sheet closes.
+  // If the server refuses it, it's rolled back and a toast offers Retry (same client_id).
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setTriedSave(true);
+    if (!evaluation.canSave) return;
+    const args = toRpcArgs(draft, evaluation);
+    if (expense) update.mutate({ expenseId: expense.id, args });
+    else create.mutate({ args, clientId: clientId.current });
+    onSaved?.(args.title, expense ? "updated" : "created");
+    onClose();
   };
 
   return (
@@ -91,32 +112,65 @@ export function ExpenseEditor({
         label={expense ? "Edit amount" : `New expense · ${group.name}`}
         onClose={closeAmount}
         onDone={(amount) => {
-          setDraft((d) => ({ ...d, amount }));
+          setDraft((d) => withAmount(d, amount, memberIds, d.currency));
           setAmountOpen(false);
         }}
       />
-      <Sheet open={open && !amountOpen} onClose={onClose} title={expense ? "Edit expense" : "New expense"}>
+      <Sheet
+        open={open && !amountOpen}
+        onClose={onClose}
+        title={expense ? "Edit expense" : "New expense"}
+        header={
+          // Fixed above the scrolling form: the amount is always fully visible.
+          <button
+            type="button"
+            onClick={() => setAmountOpen(true)}
+            className="-mx-2 flex w-[calc(100%+16px)] items-end justify-between rounded-2xl px-2 py-1 text-left hover:bg-ink/[0.03]"
+            aria-label="Change amount"
+          >
+            <Amount amount={draft.amount} currency={draft.currency} size="xl" unblurrable />
+            <span className="micro mb-2 text-ink-faded">Edit</span>
+          </button>
+        }
+        footer={
+          <>
+            <ResultSummary evaluation={evaluation} members={members} myMemberId={myMemberId} baseCurrency={base} />
+            <LeftToAssign evaluation={evaluation} currency={draft.currency} />
+            {evaluation.errors.rate && draft.currency !== base && draft.amount > 0 && (
+              <p className="mb-2 text-center text-[13px] font-medium text-ink/60">{evaluation.errors.rate}</p>
+            )}
+            {triedSave && !evaluation.canSave && !evaluation.splitLeft && !evaluation.payersLeft && (
+              <p role="alert" className="mb-2 text-center text-[13px] font-medium text-owe-ink">
+                {Object.values(evaluation.errors)[0]}
+              </p>
+            )}
+            <Button
+              type="submit"
+              form={FORM_ID}
+              fullWidth
+              disabled={!!evaluation.splitLeft || !!evaluation.payersLeft || !!evaluation.errors.rate || (triedSave && !evaluation.canSave)}
+            >
+              {expense ? "Save changes" : "Add expense"}
+            </Button>
+          </>
+        }
+      >
         <ExpenseForm
           draft={draft}
           setDraft={setDraft}
           members={members}
           baseCurrency={base}
           myMemberId={myMemberId}
-          editingId={expense?.id ?? null}
-          onSubmit={(args) => {
-            if (expense) update.mutate({ expenseId: expense.id, args });
-            else create.mutate({ args, clientId: clientId.current });
-          }}
-          onEditAmount={() => setAmountOpen(true)}
-          onSaved={(title) => {
-            onSaved?.(title, expense ? "updated" : "created");
-            onClose();
-          }}
+          evaluation={evaluation}
+          triedSave={triedSave}
+          onSubmit={submit}
         />
       </Sheet>
     </>
   );
 }
+
+const FORM_ID = "expense-form";
 
 function ExpenseForm({
   draft,
@@ -124,55 +178,25 @@ function ExpenseForm({
   members,
   baseCurrency,
   myMemberId,
-  editingId,
+  evaluation,
+  triedSave,
   onSubmit,
-  onEditAmount,
-  onSaved,
 }: {
   draft: ExpenseDraft;
   setDraft: React.Dispatch<React.SetStateAction<ExpenseDraft>>;
   members: MemberWithProfile[];
   baseCurrency: CurrencyCode;
   myMemberId: string;
-  editingId: string | null;
-  onSubmit: (args: ExpenseRpcArgs) => void;
-  onEditAmount: () => void;
-  onSaved: (title: string) => void;
+  evaluation: DraftEvaluation;
+  triedSave: boolean;
+  onSubmit: (e: React.FormEvent) => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [triedSave, setTriedSave] = useState(false);
-  const order = members.map((m) => m.id);
   // Everything is typed in the expense currency; validation converts to the group's.
   const currency = draft.currency;
-  const evaluation = evaluateDraft(draft, order, baseCurrency);
-  const saving = false; // optimistic: the sheet closes on submit
   const set = <K extends keyof ExpenseDraft>(key: K, value: ExpenseDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
-  // Optimistic: the expense is already in the list (and balances) when the sheet closes.
-  // If the server refuses it, it's rolled back and a toast offers Retry (same client_id).
-  const save = (e: React.FormEvent) => {
-    e.preventDefault();
-    setTriedSave(true);
-    if (!evaluation.canSave) return;
-    setError(null);
-    const args = toRpcArgs(draft, evaluation);
-    onSubmit(args);
-    onSaved(args.title);
-  };
-
   return (
-    <form onSubmit={save} noValidate className="pb-2">
-      {/* Amount: tap to reopen the numpad */}
-      <button
-        type="button"
-        onClick={onEditAmount}
-        className="-mx-2 flex w-[calc(100%+16px)] items-end justify-between rounded-2xl px-2 py-1 text-left hover:bg-ink/[0.03]"
-        aria-label="Change amount"
-      >
-        <Amount amount={draft.amount} currency={currency} size="xl" unblurrable />
-        <span className="micro mb-2 text-ink-faded">Edit</span>
-      </button>
-
+    <form id={FORM_ID} onSubmit={onSubmit} noValidate>
       <CurrencyAndRate draft={draft} setDraft={setDraft} baseCurrency={baseCurrency} evaluation={evaluation} />
 
       <div className="mt-6 space-y-6">
@@ -238,34 +262,62 @@ function ExpenseForm({
           />
         </Field>
       </div>
-
-      {/* Sticky footer: what's left to assign, and Save */}
-      <div className="sticky bottom-0 -mx-5 mt-6 border-t-[1.5px] border-ink/[0.06] bg-surface px-5 pt-3">
-        <LeftToAssign evaluation={evaluation} currency={currency} />
-        {error && (
-          <p role="alert" className="mb-2 text-center text-[14px] font-medium text-owe">
-            {error}
-          </p>
-        )}
-        {evaluation.errors.rate && draft.currency !== baseCurrency && draft.amount > 0 && (
-          <p className="mb-2 text-center text-[13px] font-medium text-ink/60">{evaluation.errors.rate}</p>
-        )}
-        {triedSave && !evaluation.canSave && !evaluation.splitLeft && !evaluation.payersLeft && (
-          <p role="alert" className="mb-2 text-center text-[13px] font-medium text-owe">
-            {Object.values(evaluation.errors)[0]}
-          </p>
-        )}
-        <Button
-          type="submit"
-          fullWidth
-          disabled={
-            saving || !!evaluation.splitLeft || !!evaluation.payersLeft || !!evaluation.errors.rate || (triedSave && !evaluation.canSave)
-          }
-        >
-          {saving ? "Saving…" : editingId ? "Save changes" : "Add expense"}
-        </Button>
-      </div>
     </form>
+  );
+}
+
+/**
+ * Live RESULT card: what this expense does to each person (paid − share), in the group's
+ * currency. Two people read as one sentence; three or more get a line each.
+ */
+function ResultSummary({
+  evaluation,
+  members,
+  myMemberId,
+  baseCurrency,
+}: {
+  evaluation: DraftEvaluation;
+  members: MemberWithProfile[];
+  myMemberId: string;
+  baseCurrency: CurrencyCode;
+}) {
+  if (!evaluation.payers || !evaluation.splits) return null;
+  const result = expenseResult(evaluation.payers, evaluation.splits, members.map((m) => m.id));
+  const name = (id: string) => (id === myMemberId ? "You" : members.find((m) => m.id === id)?.display_name.split(" ")[0] ?? "Someone");
+  const phrase = (id: string, net: number) => {
+    const you = id === myMemberId;
+    return net > 0 ? (you ? "get back" : "gets back") : you ? "owe" : "owes";
+  };
+  const item = (r: { memberId: string; net: number }) => (
+    <span key={r.memberId} className="inline-flex items-baseline gap-1.5">
+      <span>
+        {name(r.memberId)} {phrase(r.memberId, r.net)}
+      </span>
+      <Amount amount={Math.abs(r.net)} currency={baseCurrency} size="sm" sign={r.net > 0 ? "owed" : "owe"} unblurrable />
+    </span>
+  );
+
+  return (
+    <div aria-live="polite" className="mb-3 rounded-2xl bg-ink/[0.04] px-4 py-3">
+      <p className="micro text-ink-faded">Result</p>
+      {result.length === 0 ? (
+        <p className="mt-1.5 text-[14px] font-semibold">Everyone&apos;s square</p>
+      ) : result.length === 2 ? (
+        <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[14px] font-semibold">
+          {item(result[0])}
+          <span className="text-ink/30" aria-hidden>
+            ·
+          </span>
+          {item(result[1])}
+        </p>
+      ) : (
+        <ul className="mt-1.5 space-y-1 text-[14px] font-semibold">
+          {result.map((r) => (
+            <li key={r.memberId}>{item(r)}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -299,7 +351,7 @@ function LeftToAssign({ evaluation, currency }: { evaluation: DraftEvaluation; c
         {splitLeft.kind === "amount" ? (
           <Amount amount={Math.abs(splitLeft.value)} currency={currency} size="sm" sign={splitLeft.value < 0 ? "owe" : undefined} unblurrable />
         ) : (
-          <span className={cn("font-num text-[20px] leading-none", splitLeft.value < 0 && "text-owe")}>
+          <span className={cn("font-num text-[20px] leading-none", splitLeft.value < 0 && "text-owe-ink")}>
             {formatPercent(Math.abs(splitLeft.value))}%
           </span>
         )}
@@ -394,11 +446,22 @@ function PaidBy({
   evaluation: DraftEvaluation;
 }) {
   const name = (m: MemberWithProfile) => (m.id === myMemberId ? "You" : m.display_name.split(" ")[0]);
+  const ids = members.map((m) => m.id);
+  // 3+ people: offer to put what's left on the next empty field (2 people auto-fill on typing).
+  const suggestion = payerFillSuggestion(draft, ids, currency);
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="micro text-ink-faded">Paid by</p>
+      <div>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="micro text-ink-faded">Paid by</p>
+          {suggestion && (
+            <p className="flex items-baseline gap-1 text-[12px] font-semibold text-ink/60" aria-live="polite">
+              <Amount amount={suggestion.amount} currency={currency} size="sm" className="text-[16px]" unblurrable /> left to pay
+            </p>
+          )}
+        </div>
+        <p className="mt-1 text-[13px] font-medium text-ink/50">Who actually paid the money.</p>
       </div>
       <Segmented
         label="Payers"
@@ -407,7 +470,7 @@ function PaidBy({
           { value: "single", label: "One person" },
           { value: "multiple", label: "Multiple people" },
         ]}
-        onChange={(payerMode) => setDraft((d) => ({ ...d, payerMode }))}
+        onChange={(payerMode) => setDraft((d) => switchPayerMode(d, payerMode, d.currency))}
       />
       {draft.payerMode === "single" ? (
         <div role="radiogroup" aria-label="Who paid" className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
@@ -436,11 +499,21 @@ function PaidBy({
             <li key={m.id} className="flex items-center gap-3 py-2">
               <Avatar {...memberAvatar(m)} size="md" />
               <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{name(m)}</span>
+              {suggestion?.memberId === m.id && (
+                <button
+                  type="button"
+                  onClick={() => setDraft((d) => fillPayer(d, m.id, suggestion.amount, d.currency))}
+                  className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-ink px-3 text-[12px] font-semibold text-bg"
+                  aria-label={`Fill the remaining amount for ${name(m)}`}
+                >
+                  Fill <Amount amount={suggestion.amount} currency={currency} size="sm" className="text-[15px]" unblurrable />
+                </button>
+              )}
               <MoneyInput
                 label={`${name(m)} paid`}
                 currency={currency}
                 value={draft.payerAmounts[m.id] ?? ""}
-                onChange={(v) => setDraft((d) => ({ ...d, payerAmounts: { ...d.payerAmounts, [m.id]: v } }))}
+                onChange={(v) => setDraft((d) => setPayerAmount(d, m.id, v, ids, d.currency))}
               />
             </li>
           ))}
@@ -473,8 +546,8 @@ function SplitSection({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="micro text-ink-faded">Split</p>
+      <div className="flex items-baseline justify-between">
+        <p className="micro text-ink-faded">Split between</p>
         <button
           type="button"
           className="micro text-ink-faded hover:text-ink"
@@ -485,6 +558,7 @@ function SplitSection({
           {draft.included.length === members.length ? "Clear all" : "Everyone"}
         </button>
       </div>
+      <p className="-mt-2 text-[13px] font-medium text-ink/50">Who was this for? Each person&apos;s share of the cost.</p>
       <Segmented label="Split type" value={draft.splitType} options={SPLIT_TABS} onChange={(splitType) => setDraft((d) => ({ ...d, splitType }))} />
 
       <ul className="divide-y-[1.5px] divide-ink/[0.06]">

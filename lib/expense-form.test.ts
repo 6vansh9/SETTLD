@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { draftFromExpense, evaluateDraft, localDate, newDraft, parseMoney, toRpcArgs } from "./expense-form";
+import {
+  draftFromExpense,
+  evaluateDraft,
+  expenseResult,
+  fillPayer,
+  localDate,
+  newDraft,
+  parseMoney,
+  payerFillSuggestion,
+  setPayerAmount,
+  switchPayerMode,
+  toRpcArgs,
+  withAmount,
+} from "./expense-form";
 
 const M = ["a", "b", "c"];
 const base = () => ({ ...newDraft(M, "a", "2026-10-04"), amount: 10000, title: "Dinner" });
@@ -192,5 +205,110 @@ describe("foreign-currency expenses", () => {
     const e = evaluateDraft(d, M, "INR");
     expect(e.splits?.map((s) => s.amount)).toEqual([208750, 125250]);
     expect(e.payers?.map((p) => p.amount)).toEqual([250500, 83500]);
+  });
+});
+
+describe("multiple payers: auto-fill", () => {
+  const two = ["a", "b"];
+  const three = ["a", "b", "c"];
+  const multi = (members: string[]) => switchPayerMode({ ...newDraft(members, "a", "2026-10-04"), amount: 100000, title: "Hotel" }, "multiple", "INR");
+
+  it("switching to Multiple prefills the original payer with the full amount", () => {
+    const d = multi(two);
+    expect(d.payerAmounts).toEqual({ a: "1000" });
+    expect(d.payerTouched).toEqual({});
+  });
+
+  it("2 people: typing one fills the other with the rest", () => {
+    let d = setPayerAmount(multi(two), "b", "400", two, "INR");
+    expect(d.payerAmounts).toEqual({ a: "600", b: "400" });
+    d = setPayerAmount(d, "b", "250.5", two, "INR");
+    expect(d.payerAmounts.a).toBe("749.50");
+    expect(evaluateDraft(d, two, "INR").payers).toEqual([{ memberId: "a", amount: 74950 }, { memberId: "b", amount: 25050 }]);
+  });
+
+  it("2 people: once I edit the second one, it is never overwritten again", () => {
+    let d = setPayerAmount(multi(two), "b", "400", two, "INR"); // a auto = 600
+    d = setPayerAmount(d, "a", "500", two, "INR"); // I take over a
+    expect(d.payerAmounts).toEqual({ a: "500", b: "400" });
+    d = setPayerAmount(d, "b", "300", two, "INR");
+    expect(d.payerAmounts).toEqual({ a: "500", b: "300" }); // both mine: nothing auto-changes
+    expect(evaluateDraft(d, two, "INR").payersLeft).toBe(20000); // ₹200 still to pay, shown not fixed
+  });
+
+  it("2 people: typing more than the total empties the other instead of going negative", () => {
+    expect(setPayerAmount(multi(two), "b", "1200", two, "INR").payerAmounts.a).toBe("");
+  });
+
+  it("2 people: half-typed input leaves the other field alone", () => {
+    expect(setPayerAmount(multi(two), "b", "4.0.0", two, "INR").payerAmounts.a).toBe("1000");
+  });
+
+  it("changing the total keeps the untouched field in step", () => {
+    let d = multi(two);
+    d = withAmount(d, 150000, two, "INR");
+    expect(d.payerAmounts.a).toBe("1500"); // untouched prefill follows the total
+    d = setPayerAmount(d, "b", "500", two, "INR");
+    d = withAmount(d, 200000, two, "INR");
+    expect(d.payerAmounts).toEqual({ a: "1500", b: "500" });
+  });
+
+  it("3+ people: no silent filling, a suggestion on the next empty field instead", () => {
+    let d = setPayerAmount(multi(three), "a", "600", three, "INR");
+    expect(d.payerAmounts).toEqual({ a: "600" });
+    expect(payerFillSuggestion(d, three, "INR")).toEqual({ memberId: "b", amount: 40000 });
+    d = fillPayer(d, "b", 40000, "INR");
+    expect(d.payerAmounts).toEqual({ a: "600", b: "400" });
+    expect(d.payerTouched.b).toBe(true);
+    expect(payerFillSuggestion(d, three, "INR")).toBeNull(); // fully paid
+  });
+
+  it("3+ people: suggestion skips fields I typed in, even if I cleared them", () => {
+    let d = setPayerAmount(multi(three), "a", "300", three, "INR");
+    d = setPayerAmount(d, "b", "", three, "INR"); // touched then cleared
+    expect(payerFillSuggestion(d, three, "INR")).toEqual({ memberId: "c", amount: 70000 });
+  });
+
+  it("editing a saved multi-payer expense never auto-changes its amounts", () => {
+    const saved = {
+      title: "Hotel", amount: 100000, category: "stay", date: "2026-10-01", note: null,
+      payers: [{ member_id: "a", amount_base: 60000 }, { member_id: "b", amount_base: 40000 }],
+      splits: [{ member_id: "a", amount_base: 50000, split_type: "equal", raw_value: null }, { member_id: "b", amount_base: 50000, split_type: "equal", raw_value: null }],
+    };
+    const d = setPayerAmount(draftFromExpense(saved, "INR"), "b", "300", two, "INR");
+    expect(d.payerAmounts).toEqual({ a: "600", b: "300" });
+  });
+});
+
+describe("expenseResult (RESULT card)", () => {
+  it("2 people: one gets back exactly what the other owes", () => {
+    expect(expenseResult([{ memberId: "a", amount: 100000 }], [{ memberId: "a", amount: 50000 }, { memberId: "b", amount: 50000 }], ["a", "b"])).toEqual([
+      { memberId: "a", net: 50000 },
+      { memberId: "b", net: -50000 },
+    ]);
+  });
+
+  it("everyone square → empty", () => {
+    expect(expenseResult([{ memberId: "a", amount: 500 }, { memberId: "b", amount: 500 }], [{ memberId: "a", amount: 500 }, { memberId: "b", amount: 500 }], ["a", "b"])).toEqual([]);
+  });
+
+  it("3+ people: only non-zero lines, in member order, summing to zero", () => {
+    const r = expenseResult(
+      [{ memberId: "a", amount: 60000 }, { memberId: "b", amount: 30000 }],
+      ["a", "b", "c"].map((m) => ({ memberId: m, amount: 30000 })),
+      ["a", "b", "c"],
+    );
+    expect(r).toEqual([{ memberId: "a", net: 30000 }, { memberId: "c", net: -30000 }]);
+    expect(r.reduce((s, x) => s + x.net, 0)).toBe(0);
+  });
+
+  it("uses exactly what evaluateDraft would save (₹100 three ways)", () => {
+    const d = { ...newDraft(["a", "b", "c"], "a", "2026-10-04"), amount: 10000, title: "x" };
+    const e = evaluateDraft(d, ["a", "b", "c"], "INR");
+    expect(expenseResult(e.payers!, e.splits!, ["a", "b", "c"])).toEqual([
+      { memberId: "a", net: 6666 },
+      { memberId: "b", net: -3333 },
+      { memberId: "c", net: -3333 },
+    ]);
   });
 });

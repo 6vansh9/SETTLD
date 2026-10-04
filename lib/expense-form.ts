@@ -1,4 +1,5 @@
 import { isCategory, type Category } from "@/lib/categories";
+import { computeBalances } from "@/lib/simplify";
 import {
   allocateToBase,
   computeSplits,
@@ -36,6 +37,8 @@ export interface ExpenseDraft {
   payerMode: "single" | "multiple";
   payerId: string;
   payerAmounts: Record<string, string>; // multiple payers, major units as typed
+  /** Payer fields the user typed in. Only untouched fields are ever auto-filled. */
+  payerTouched: Record<string, boolean>;
   splitType: SplitType;
   included: string[]; // member ids in the split
   exact: Record<string, string>; // major units as typed
@@ -88,6 +91,7 @@ export function newDraft(
     payerMode: "single",
     payerId: myMemberId,
     payerAmounts: {},
+    payerTouched: {},
     splitType: "equal",
     included: [...memberIds],
     exact: {},
@@ -286,6 +290,8 @@ export function draftFromExpense(e: SavedExpense, baseCurrency: CurrencyCode): E
     payerMode: multiple ? "multiple" : "single",
     payerId: e.payers[0]?.member_id ?? "",
     payerAmounts: multiple ? Object.fromEntries(e.payers.map((p, i) => [p.member_id, major(payerOriginal[i])])) : {},
+    // Saved amounts were chosen by someone: never auto-change them.
+    payerTouched: multiple ? Object.fromEntries(e.payers.map((p) => [p.member_id, true])) : {},
     splitType: type,
     included: e.splits.map((s) => s.member_id),
     exact: type === "exact" ? Object.fromEntries(e.splits.map((s) => [s.member_id, major(Number(s.raw_value ?? s.amount_base))])) : {},
@@ -295,4 +301,116 @@ export function draftFromExpense(e: SavedExpense, baseCurrency: CurrencyCode): E
         ? Object.fromEntries(e.splits.map((s) => [s.member_id, String(Number(s.raw_value ?? 1))]))
         : Object.fromEntries(e.splits.map((s) => [s.member_id, "1"])),
   };
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Multiple payers: auto-fill rules (tested in expense-form.test.ts)
+ *  • Typed fields are never auto-changed; only untouched fields auto-fill.
+ *  • 2 people: typing one amount fills the other with total − typed.
+ *  • 3+ people: no silent filling; payerFillSuggestion() offers "Fill ₹X" on the next empty field.
+ *  • Switching One person → Multiple prefills the original payer with the full amount.
+ * --------------------------------------------------------------------------------------------- */
+
+const majorString = (minor: number, currency: CurrencyCode) => fromMinor(minor, currency).replace(/\.00$/, "");
+
+function payerTotal(d: ExpenseDraft, ids: readonly string[], currency: CurrencyCode): number | null {
+  let sum = 0;
+  for (const id of ids) {
+    const v = parseMoney(d.payerAmounts[id], currency);
+    if (v === null) return null;
+    sum += v;
+  }
+  return sum;
+}
+
+/** Re-run the 2-person rule: the one untouched field takes whatever the touched one leaves. */
+export function autofillPayers(d: ExpenseDraft, memberIds: readonly string[], currency: CurrencyCode): ExpenseDraft {
+  if (d.payerMode !== "multiple" || memberIds.length !== 2) return d;
+  const touched = memberIds.filter((id) => d.payerTouched[id]);
+  if (touched.length !== 1) return d;
+  const other = memberIds.find((id) => !d.payerTouched[id])!;
+  const typed = parseMoney(d.payerAmounts[touched[0]], currency);
+  if (typed === null) return d; // half-typed or invalid: leave the other field alone
+  const rest = d.amount - typed;
+  return { ...d, payerAmounts: { ...d.payerAmounts, [other]: rest > 0 ? majorString(rest, currency) : "" } };
+}
+
+/** The user typed in a payer field. */
+export function setPayerAmount(
+  d: ExpenseDraft,
+  memberId: string,
+  value: string,
+  memberIds: readonly string[],
+  currency: CurrencyCode,
+): ExpenseDraft {
+  const next = {
+    ...d,
+    payerAmounts: { ...d.payerAmounts, [memberId]: value },
+    payerTouched: { ...d.payerTouched, [memberId]: true },
+  };
+  return autofillPayers(next, memberIds, currency);
+}
+
+/** One person ⇄ Multiple people. Going to Multiple with nothing entered prefills the payer with the full amount. */
+export function switchPayerMode(d: ExpenseDraft, mode: ExpenseDraft["payerMode"], currency: CurrencyCode): ExpenseDraft {
+  if (mode === d.payerMode) return d;
+  if (mode === "single") return { ...d, payerMode: "single" };
+  const empty = Object.values(d.payerAmounts).every((v) => !v?.trim());
+  return {
+    ...d,
+    payerMode: "multiple",
+    payerAmounts: empty && d.payerId && d.amount > 0 ? { [d.payerId]: majorString(d.amount, currency) } : d.payerAmounts,
+    payerTouched: empty ? {} : d.payerTouched,
+  };
+}
+
+/** The total changed (numpad): keep the untouched prefill / auto-filled field in step. */
+export function withAmount(d: ExpenseDraft, amount: number, memberIds: readonly string[], currency: CurrencyCode): ExpenseDraft {
+  let next = { ...d, amount };
+  if (next.payerMode === "multiple") {
+    const filled = Object.entries(next.payerAmounts).filter(([, v]) => v?.trim());
+    if (filled.length === 1 && !next.payerTouched[filled[0][0]]) {
+      next = { ...next, payerAmounts: { ...next.payerAmounts, [filled[0][0]]: majorString(amount, currency) } };
+    }
+    next = autofillPayers(next, memberIds, currency);
+  }
+  return next;
+}
+
+/** 3+ people: "₹X left to pay" and where to offer the "Fill ₹X" chip (next empty, untouched field). */
+export function payerFillSuggestion(
+  d: ExpenseDraft,
+  memberIds: readonly string[],
+  currency: CurrencyCode,
+): { memberId: string; amount: number } | null {
+  if (d.payerMode !== "multiple" || memberIds.length < 3 || d.amount <= 0) return null;
+  const total = payerTotal(d, memberIds, currency);
+  if (total === null) return null;
+  const left = d.amount - total;
+  if (left <= 0) return null;
+  const target = memberIds.find((id) => !d.payerTouched[id] && !(d.payerAmounts[id] ?? "").trim());
+  return target ? { memberId: target, amount: left } : null;
+}
+
+/** Tapping "Fill ₹X": the user chose it, so it counts as typed. */
+export function fillPayer(d: ExpenseDraft, memberId: string, amount: number, currency: CurrencyCode): ExpenseDraft {
+  return {
+    ...d,
+    payerAmounts: { ...d.payerAmounts, [memberId]: majorString(amount, currency) },
+    payerTouched: { ...d.payerTouched, [memberId]: true },
+  };
+}
+
+/**
+ * Live RESULT card: what this expense does to each person, paid − share (base currency).
+ * Non-zero people only, in member order; empty means everyone's square.
+ */
+export function expenseResult(
+  payers: readonly MemberAmount[],
+  splits: readonly MemberAmount[],
+  memberOrder: readonly string[],
+): { memberId: string; net: number }[] {
+  return computeBalances([{ payers, splits }], memberOrder)
+    .filter((b) => b.net !== 0)
+    .map((b) => ({ memberId: b.memberId, net: b.net }));
 }

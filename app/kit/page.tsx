@@ -142,11 +142,11 @@ function AmountsSection() {
 
       <div className="mt-8 grid grid-cols-2 gap-3">
         <Card>
-          <p className="micro text-owe">You owe</p>
+          <p className="micro text-owe-ink">You owe</p>
           <Amount amount={34050} currency="INR" size="md" sign="owe" className="mt-3" />
         </Card>
         <Card>
-          <p className="micro text-owed">You&apos;re owed</p>
+          <p className="micro text-owed-ink">You&apos;re owed</p>
           <Amount amount={1240000} currency="INR" size="md" sign="owed" className="mt-3" />
         </Card>
       </div>

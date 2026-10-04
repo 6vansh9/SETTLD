@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AnimatedAmount, AvatarStack, Card } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { microDate } from "@/lib/groups";
 import { activeMembers, memberAvatar, type GroupWithMembers } from "@/lib/groups-data";
 import { pastelVar } from "@/lib/pastels";
@@ -23,13 +24,11 @@ export function GroupCard({ group, href, myNet = 0 }: { group: GroupWithMembers;
         </span>
         <span className="min-w-0 break-words">{group.name}</span>
       </h3>
-      <div className="mt-4 flex items-end justify-between">
+      <div className="mt-4 flex items-end justify-between gap-3">
         <span className="micro opacity-60">
-          {members.length} {members.length === 1 ? "member" : "members"} ·{" "}
-          {myNet > 0 ? "You're owed" : myNet < 0 ? "You owe" : "All settled"}
+          {members.length} {members.length === 1 ? "member" : "members"}
         </span>
-        {/* Dark text on pastel: owe/owed reds and greens fail contrast here; the label says which. */}
-        <AnimatedAmount amount={Math.abs(myNet)} currency={group.base_currency} size="lg" />
+        <StatusChip net={myNet} currency={group.base_currency} />
       </div>
     </Card>
   );
@@ -40,5 +39,30 @@ export function GroupCard({ group, href, myNet = 0 }: { group: GroupWithMembers;
     </Link>
   ) : (
     body
+  );
+}
+
+/**
+ * Red "You owe ₹X" / green "You're owed ₹X" / grey "Settled up". On a pastel card red or green
+ * *text* fails contrast, so the color is the chip's fill with dark text on it (AA in both themes;
+ * lib/contrast.test.ts).
+ */
+function StatusChip({ net, currency }: { net: number; currency: GroupWithMembers["base_currency"] }) {
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-baseline gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold text-on-pastel",
+        net < 0 ? "bg-owe" : net > 0 ? "bg-owed" : "bg-on-pastel/10",
+      )}
+    >
+      {net === 0 ? (
+        "Settled up"
+      ) : (
+        <>
+          {net < 0 ? "You owe" : "You're owed"}
+          <AnimatedAmount amount={Math.abs(net)} currency={currency} size="sm" className="text-[20px]" />
+        </>
+      )}
+    </span>
   );
 }

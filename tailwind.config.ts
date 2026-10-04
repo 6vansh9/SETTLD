@@ -27,6 +27,8 @@ const config: Config = {
         coral: token("coral"),
         owe: token("owe"),
         owed: token("owed"),
+        "owe-ink": token("owe-ink"),
+        "owed-ink": token("owed-ink"),
         "on-pastel": token("on-pastel"),
       },
       fontFamily: {

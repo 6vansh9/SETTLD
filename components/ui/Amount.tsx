@@ -87,8 +87,8 @@ export function Amount({
   const classes = cn(
     "inline-flex items-baseline whitespace-nowrap font-num leading-[0.85] tabular",
     sizeClass[size],
-    sign === "owe" && "text-owe",
-    sign === "owed" && "text-owed",
+    sign === "owe" && "text-owe-ink",
+    sign === "owed" && "text-owed-ink",
     "transition-[filter] duration-200",
     hidden && "select-none [filter:blur(8px)]",
     className,

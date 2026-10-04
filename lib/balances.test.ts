@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { convertedTotal, myNetInGroup, myPositionOnExpense, overallTotals } from "./balances";
+import { convertedTotal, myNetInGroup, myPositionOnExpense, overallTotals, oweOwedTotals } from "./balances";
 
 const g = (id: string, cur: "INR" | "USD", meId: string, left: string | null = null) => ({
   id,
@@ -58,5 +58,45 @@ describe("convertedTotal", () => {
 
   it("is exact (not approx) when everything is already in the default currency", () => {
     expect(convertedTotal({ primary: -500, others: [] }, "INR", {})).toEqual({ total: -500, approx: false, unconverted: [] });
+  });
+});
+
+describe("oweOwedTotals", () => {
+  const grp = (id: string, cur: "INR" | "USD" | "EUR" | "GBP", net: number) => ({
+    group: { id, base_currency: cur, members: [{ id: `${id}-me`, user_id: "me", left_at: null }] },
+    balance: { group_id: id, member_id: `${id}-me`, net },
+  });
+
+  it("splits groups into owe and owed (no netting across groups)", () => {
+    const g = [grp("g1", "INR", -50000), grp("g2", "INR", 120000), grp("g3", "INR", -20000), grp("g4", "INR", 0)];
+    expect(oweOwedTotals(g.map((x) => x.group), g.map((x) => x.balance), "me", "INR")).toEqual({
+      owe: 70000,
+      owed: 120000,
+      net: 50000,
+      approx: false,
+      unconverted: [],
+    });
+  });
+
+  it("converts each group separately into my currency and flags approx", () => {
+    const g = [grp("in", "INR", -50000), grp("us", "USD", 4000), grp("eu", "EUR", -1000)];
+    const t = oweOwedTotals(g.map((x) => x.group), g.map((x) => x.balance), "me", "INR", { "USD:INR": "96.32", "EUR:INR": "108.1" });
+    expect(t).toEqual({ owe: 50000 + 108100, owed: 385280, net: 385280 - 158100, approx: true, unconverted: [] });
+  });
+
+  it("a currency with no rate stays out of the totals, listed separately", () => {
+    const g = [grp("in", "INR", 1000), grp("gb", "GBP", -500)];
+    expect(oweOwedTotals(g.map((x) => x.group), g.map((x) => x.balance), "me", "INR", {})).toEqual({
+      owe: 0,
+      owed: 1000,
+      net: 1000,
+      approx: false,
+      unconverted: [{ currency: "GBP", owe: 500, owed: 0 }],
+    });
+  });
+
+  it("all settled", () => {
+    const g = [grp("a", "INR", 0)];
+    expect(oweOwedTotals(g.map((x) => x.group), g.map((x) => x.balance), "me", "INR")).toMatchObject({ owe: 0, owed: 0, net: 0 });
   });
 });
