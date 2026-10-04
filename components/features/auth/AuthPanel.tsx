@@ -23,7 +23,13 @@ function callbackUrl(next: string) {
 }
 
 /** Continue with Google + Continue with email (magic link in a sheet). */
-export function AuthPanel({ next, error }: { next: string; error?: string }) {
+export type AuthMode = "signin" | "signup";
+
+/**
+ * Google or email (magic link / 6-digit code). Passwordless, so sign-in and sign-up use the same
+ * mechanics; the difference is that email sign-in never creates an account by accident.
+ */
+export function AuthPanel({ next, error, mode = "signin" }: { next: string; error?: string; mode?: AuthMode }) {
   const [googleBusy, setGoogleBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(errorMessage(error));
   const [emailOpen, setEmailOpen] = useState(false);
@@ -72,12 +78,13 @@ export function AuthPanel({ next, error }: { next: string; error?: string }) {
         )}
       </AnimatePresence>
 
-      <EmailSheet open={emailOpen} onClose={() => setEmailOpen(false)} next={next} />
+      <EmailSheet open={emailOpen} onClose={() => setEmailOpen(false)} next={next} mode={mode} />
     </div>
   );
 }
 
-function EmailSheet({ open, onClose, next }: { open: boolean; onClose: () => void; next: string }) {
+function EmailSheet({ open, onClose, next, mode }: { open: boolean; onClose: () => void; next: string; mode: AuthMode }) {
+  const [noAccount, setNoAccount] = useState(false);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -122,12 +129,19 @@ function EmailSheet({ open, onClose, next }: { open: boolean; onClose: () => voi
     }
     setStatus("sending");
     setError(null);
+    setNoAccount(false);
     const { error } = await createClient().auth.signInWithOtp({
       email: address,
-      options: { emailRedirectTo: callbackUrl(next) },
+      // Sign in never creates an account; that's what Sign up is for.
+      options: { emailRedirectTo: callbackUrl(next), shouldCreateUser: mode === "signup" },
     });
     if (error) {
       setStatus("idle");
+      if (mode === "signin" && /signups not allowed|otp_disabled|user not found/i.test(`${error.message} ${error.code ?? ""}`)) {
+        setNoAccount(true);
+        setError("No Settld account uses that email yet.");
+        return;
+      }
       setError(/rate limit|security purposes/i.test(error.message) ? "Too many tries. Wait a minute and try again." : error.message);
       return;
     }
@@ -213,8 +227,8 @@ function EmailSheet({ open, onClose, next }: { open: boolean; onClose: () => voi
             exit={{ opacity: 0 }}
             transition={reduce ? fade : spring}
           >
-            <Title line1="WHAT'S YOUR" line2="EMAIL" size="md" as="h3" />
-            <p className="mt-3 text-[15px] font-medium text-ink/70">No password. We&apos;ll email you a link.</p>
+            <Title line1={mode === "signup" ? "WHAT'S YOUR" : "SIGN IN"} line2={mode === "signup" ? "EMAIL" : "WITH EMAIL"} size="md" as="h3" />
+            <p className="mt-3 text-[15px] font-medium text-ink/70">No password. We&apos;ll email you a link and a code.</p>
             <label htmlFor="email" className="micro mt-8 block text-ink-faded">
               Email
             </label>
@@ -238,6 +252,14 @@ function EmailSheet({ open, onClose, next }: { open: boolean; onClose: () => voi
             {error && (
               <p id="email-error" role="alert" className="mt-2 text-[13px] font-medium text-owe">
                 {error}
+                {noAccount && (
+                  <>
+                    {" "}
+                    <a href={`/signup?next=${encodeURIComponent(next)}`} className="font-semibold text-ink underline underline-offset-2">
+                      Create an account
+                    </a>
+                  </>
+                )}
               </p>
             )}
             <Button type="submit" fullWidth className="mt-6" disabled={status === "sending"}>

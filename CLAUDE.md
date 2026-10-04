@@ -134,3 +134,9 @@
 - **Auth return:** `lib/auth-return.ts` handles `/auth/callback` and `/auth/confirm`: PKCE `?code=`, template `?token_hash=`, and Supabase `?error=` params → clear messages (`lib/auth-flow.ts`, tested). Redirects use `requestOrigin()` (x-forwarded-host on Vercel, validated; tested). Failures are logged with a reason, never tokens. Middleware skips `/auth/*`.
 - **Email code:** the email sheet accepts the 6-digit OTP (`verifyOtp`), which works in the home-screen app and when the link opens in another browser. It needs `{{ .Token }}` in the Supabase email templates.
 - **Account switching:** Google uses `prompt: select_account`. `components/providers/AuthSync.tsx` clears the TanStack cache, app storage (theme kept) and privacy blur whenever the user changes, and hard-navigates when a known account is replaced or signed out. Sign-out uses `signOutAndReset` (`lib/session-reset.ts`). The server Supabase client fetches with `cache: "no-store"`.
+
+### Homepage + separate sign-in / sign-up (2026-10-05, user request; changes PRD screen 1)
+
+- `/` is a public homepage (hero, Get started → `/signup`, Sign in → `/login`, How it works, final CTA). Signed-in users are redirected to `/groups` or `/onboarding`.
+- `/signup` and `/login` share `components/features/auth/AuthScreen.tsx` and keep `?next=` (invites) when linking to each other. Still passwordless (Google or email link/code). Email sign-in uses `shouldCreateUser: false`, so an unknown email gets "No Settld account uses that email yet" (Supabase `otp_disabled`) with a link to sign up. Google always creates or reuses.
+- The Join screen's primary CTA is "Join with a free account" (`/signup`), plus "I already have an account" (`/login`).

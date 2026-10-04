@@ -35,7 +35,7 @@ export function JoinScreen({
   const [error, setError] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const busy = join.isPending || claim.isPending;
-  const loginHref = `/login?next=${encodeURIComponent(`/join/${token}`)}`;
+  const nextParam = `?next=${encodeURIComponent(`/join/${token}`)}`;
 
   const doJoin = async () => {
     setError(null);
@@ -95,14 +95,18 @@ export function JoinScreen({
       {!details ? (
         <div className="mt-8 space-y-3">
           <Link
-            href={loginHref}
+            href={`/signup${nextParam}`}
             className="flex h-14 w-full items-center justify-center rounded-full bg-coral font-display-alt text-[20px] uppercase tracking-wide text-on-pastel"
           >
-            Sign in to join
+            Join with a free account
           </Link>
-          <p className="text-center text-[13px] font-medium text-ink/50">
-            New to Settld? It takes 30 seconds. We&apos;ll bring you straight back here.
-          </p>
+          <Link
+            href={`/login${nextParam}`}
+            className="flex h-12 w-full items-center justify-center rounded-full text-[15px] font-semibold text-ink hover:bg-ink/5"
+          >
+            I already have an account
+          </Link>
+          <p className="text-center text-[13px] font-medium text-ink/50">It takes 30 seconds. We&apos;ll bring you straight back here.</p>
         </div>
       ) : details.claim ? (
         <div className="mt-8 space-y-3">
