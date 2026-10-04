@@ -7,7 +7,8 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except static files, images, and the kit.
-    "/((?!_next/static|_next/image|favicon.ico|kit|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Everything except static files, images, the kit, and /auth/* (the sign-in routes set the
+    // session themselves; nothing should touch cookies or redirect before they run).
+    "/((?!_next/static|_next/image|favicon.ico|kit|auth/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

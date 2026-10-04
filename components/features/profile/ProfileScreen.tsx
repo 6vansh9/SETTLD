@@ -3,13 +3,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, LogOut } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Avatar, Button, Sheet, Switch, ThemeToggle, Title } from "@/components/ui";
 import { CURRENCIES, type CurrencyCode } from "@/lib/money";
 import type { Pastel } from "@/lib/pastels";
 import { useProfile, useUpdateProfile } from "@/lib/queries/profile";
-import { createClient } from "@/lib/supabase/client";
+import { signOutAndReset } from "@/lib/session-reset";
 import type { Profile } from "@/lib/supabase/types";
 import { isValidUpiId, normalizeUpiId } from "@/lib/upi";
 import { ColorPicker } from "./ColorPicker";
@@ -19,7 +18,6 @@ import { TextField } from "./TextField";
 type Editing = "name" | "color" | "upi" | "currency" | null;
 
 export function ProfileScreen({ initialProfile, email }: { initialProfile: Profile; email: string }) {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const { data } = useProfile(initialProfile);
   const profile = data ?? initialProfile;
@@ -40,10 +38,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
 
   const signOut = async () => {
     setSigningOut(true);
-    await createClient().auth.signOut();
-    queryClient.clear();
-    router.replace("/");
-    router.refresh();
+    await signOutAndReset(queryClient);
   };
 
   return (

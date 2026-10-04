@@ -4,16 +4,19 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button, Sheet, Title } from "@/components/ui";
+import { AUTH_ERROR_MESSAGES, googleSignInOptions, isAuthErrorCode, normalizeOtp } from "@/lib/auth-flow";
 import { fade, spring } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
 
 const RESEND_COOLDOWN_S = 60;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const ERRORS: Record<string, string> = {
-  auth: "Sign-in didn't go through. Try again.",
-  link: "That link expired or was already used. Send a new one.",
-};
+/** ?error= from the auth routes ("link" is the pre-fix name for an expired link). */
+function errorMessage(code: string | undefined): string | null {
+  if (!code) return null;
+  if (code === "link") return AUTH_ERROR_MESSAGES.expired;
+  return isAuthErrorCode(code) ? AUTH_ERROR_MESSAGES[code] : AUTH_ERROR_MESSAGES.auth;
+}
 
 function callbackUrl(next: string) {
   return `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
@@ -22,7 +25,7 @@ function callbackUrl(next: string) {
 /** Continue with Google + Continue with email (magic link in a sheet). */
 export function AuthPanel({ next, error }: { next: string; error?: string }) {
   const [googleBusy, setGoogleBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(error ? (ERRORS[error] ?? ERRORS.auth) : null);
+  const [message, setMessage] = useState<string | null>(errorMessage(error));
   const [emailOpen, setEmailOpen] = useState(false);
 
   const google = async () => {
@@ -30,7 +33,8 @@ export function AuthPanel({ next, error }: { next: string; error?: string }) {
     setMessage(null);
     const { error } = await createClient().auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: callbackUrl(next) },
+      // Always show Google's account chooser, so switching accounts never reuses the last one.
+      options: googleSignInOptions(callbackUrl(next)),
     });
     // On success the browser navigates away; we only get here on failure.
     if (error) {
@@ -78,7 +82,30 @@ function EmailSheet({ open, onClose, next }: { open: boolean; onClose: () => voi
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const reduce = useReducedMotion();
+
+  // The 6-digit code works anywhere: in the home-screen app (separate cookies from Safari) or when
+  // the link would open in another browser (e.g. the Gmail app).
+  const verifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = normalizeOtp(code);
+    if (!token) {
+      setError("Enter the 6-digit code from the email.");
+      return;
+    }
+    setVerifying(true);
+    setError(null);
+    const { error } = await createClient().auth.verifyOtp({ email: email.trim(), token, type: "email" });
+    if (error) {
+      setVerifying(false);
+      setError(/expired/i.test(error.message) ? AUTH_ERROR_MESSAGES.expired : AUTH_ERROR_MESSAGES.code);
+      return;
+    }
+    // Hard navigation: the server reads the new session cookie and sends you to onboarding or `next`.
+    window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+  };
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -126,14 +153,52 @@ function EmailSheet({ open, onClose, next }: { open: boolean; onClose: () => voi
           >
             <Title line1="CHECK" line2="YOUR INBOX" size="md" as="h3" />
             <p className="mt-4 text-[15px] font-medium text-ink/70">
-              We sent a sign-in link to <span className="font-semibold text-ink">{email.trim()}</span>.
-              Open it on this device to continue.
+              We emailed <span className="font-semibold text-ink">{email.trim()}</span>. Tap the link in it, or
+              enter the code from it here.
             </p>
-            <div className="mt-8 flex flex-col gap-3">
+            <form onSubmit={verifyCode} noValidate className="mt-6">
+              <label htmlFor="otp" className="micro block text-ink-faded">
+                Code from the email
+              </label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  id="otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={12}
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value.replace(/[^\d\s]/g, ""));
+                    setError(null);
+                  }}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "otp-error" : undefined}
+                  className="h-14 min-w-0 flex-1 rounded-2xl border-[1.5px] border-ink/15 bg-bg px-4 text-center font-num text-[28px] tracking-[0.2em] text-ink placeholder:text-ink/20 focus:border-ink focus:outline-none"
+                />
+                <Button type="submit" className="h-14" disabled={verifying || !normalizeOtp(code)}>
+                  {verifying ? "…" : "Sign in"}
+                </Button>
+              </div>
+              {error && (
+                <p id="otp-error" role="alert" className="mt-2 text-[13px] font-medium text-owe">
+                  {error}
+                </p>
+              )}
+            </form>
+            <div className="mt-6 flex flex-col gap-3">
               <Button variant="secondary" fullWidth disabled={cooldown > 0} onClick={() => send()}>
                 {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend link"}
               </Button>
-              <Button variant="ghost" fullWidth onClick={() => setStatus("idle")}>
+              <Button
+                variant="ghost"
+                fullWidth
+                onClick={() => {
+                  setStatus("idle");
+                  setCode("");
+                  setError(null);
+                }}
+              >
                 Use a different email
               </Button>
             </div>
