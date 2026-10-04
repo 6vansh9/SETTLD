@@ -13,9 +13,9 @@ import {
   toRpcArgs,
   type DraftEvaluation,
   type ExpenseDraft,
+  type ExpenseRpcArgs,
 } from "@/lib/expense-form";
 import type { ExpenseWithLines } from "@/lib/expenses-data";
-import { friendlyError } from "@/lib/groups";
 import { activeMembers, memberAvatar, type GroupWithMembers, type MemberWithProfile } from "@/lib/groups-data";
 import { CURRENCIES, CURRENCY_CODES, formatPercent, type CurrencyCode, type SplitType } from "@/lib/money";
 import { useCreateExpense, useUpdateExpense } from "@/lib/queries/expenses";
@@ -38,14 +38,19 @@ export function ExpenseEditor({
   onSaved,
   group,
   myMemberId,
+  myUserId,
   expense,
+  onTypingChange,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved?: (title: string, mode: "created" | "updated") => void;
   group: GroupWithMembers;
   myMemberId: string;
+  myUserId: string;
   expense?: ExpenseWithLines | null;
+  /** Presence: true while this editor is open (others see "… is adding an expense"). */
+  onTypingChange?: (typing: boolean) => void;
 }) {
   const members = useMemo(() => activeMembers(group), [group]);
   const memberIds = useMemo(() => members.map((m) => m.id), [members]);
@@ -53,6 +58,14 @@ export function ExpenseEditor({
   const [draft, setDraft] = useState<ExpenseDraft>(() => newDraft(memberIds, myMemberId, undefined, base));
   const [amountOpen, setAmountOpen] = useState(false);
   const clientId = useRef<string>("");
+  // Mutations live here (always mounted), not in the form inside the sheet: the sheet closes
+  // before the server answers, and the error toast's Retry must still work afterwards.
+  const create = useCreateExpense(group.id, myUserId);
+  const update = useUpdateExpense(group.id);
+
+  useEffect(() => {
+    onTypingChange?.(open);
+  }, [open, onTypingChange]);
 
   // Fresh draft (and a fresh idempotency key) every time the editor opens.
   useEffect(() => {
@@ -89,9 +102,11 @@ export function ExpenseEditor({
           members={members}
           baseCurrency={base}
           myMemberId={myMemberId}
-          groupId={group.id}
           editingId={expense?.id ?? null}
-          clientId={clientId.current}
+          onSubmit={(args) => {
+            if (expense) update.mutate({ expenseId: expense.id, args });
+            else create.mutate({ args, clientId: clientId.current });
+          }}
           onEditAmount={() => setAmountOpen(true)}
           onSaved={(title) => {
             onSaved?.(title, expense ? "updated" : "created");
@@ -109,9 +124,8 @@ function ExpenseForm({
   members,
   baseCurrency,
   myMemberId,
-  groupId,
   editingId,
-  clientId,
+  onSubmit,
   onEditAmount,
   onSaved,
 }: {
@@ -120,36 +134,30 @@ function ExpenseForm({
   members: MemberWithProfile[];
   baseCurrency: CurrencyCode;
   myMemberId: string;
-  groupId: string;
   editingId: string | null;
-  clientId: string;
+  onSubmit: (args: ExpenseRpcArgs) => void;
   onEditAmount: () => void;
   onSaved: (title: string) => void;
 }) {
-  const create = useCreateExpense(groupId);
-  const update = useUpdateExpense(groupId);
   const [error, setError] = useState<string | null>(null);
   const [triedSave, setTriedSave] = useState(false);
   const order = members.map((m) => m.id);
   // Everything is typed in the expense currency; validation converts to the group's.
   const currency = draft.currency;
   const evaluation = evaluateDraft(draft, order, baseCurrency);
-  const saving = create.isPending || update.isPending;
+  const saving = false; // optimistic: the sheet closes on submit
   const set = <K extends keyof ExpenseDraft>(key: K, value: ExpenseDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
-  const save = async (e: React.FormEvent) => {
+  // Optimistic: the expense is already in the list (and balances) when the sheet closes.
+  // If the server refuses it, it's rolled back and a toast offers Retry (same client_id).
+  const save = (e: React.FormEvent) => {
     e.preventDefault();
     setTriedSave(true);
     if (!evaluation.canSave) return;
     setError(null);
     const args = toRpcArgs(draft, evaluation);
-    try {
-      if (editingId) await update.mutateAsync({ expenseId: editingId, args });
-      else await create.mutateAsync({ args, clientId });
-      onSaved(args.title);
-    } catch (err) {
-      setError(friendlyError(err));
-    }
+    onSubmit(args);
+    onSaved(args.title);
   };
 
   return (

@@ -24,6 +24,13 @@ export async function fetchExpenses(supabase: Client, groupId: string): Promise<
   return (data as unknown as ExpenseWithLines[]).map(normalizeExpense);
 }
 
+/** One expense with its lines (swapping an optimistic row for the server's). Null if gone. */
+export async function fetchExpense(supabase: Client, id: string): Promise<ExpenseWithLines | null> {
+  const { data, error } = await supabase.from("expenses").select(EXPENSE_SELECT).eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? normalizeExpense(data as unknown as ExpenseWithLines) : null;
+}
+
 /** bigint/numeric columns can arrive as strings; money must be integers. */
 function normalizeExpense(e: ExpenseWithLines): ExpenseWithLines {
   return {

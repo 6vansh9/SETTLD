@@ -1,11 +1,17 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { expenseKeys } from "@/lib/queries/expenses";
-import { groupKeys } from "@/lib/queries/groups";
-import { fetchSettlements } from "@/lib/settlements-data";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
+import { useToast } from "@/components/providers/ToastProvider";
+import { friendlyError } from "@/lib/groups";
+import type { CurrencyCode } from "@/lib/money";
+import { applyDelta, compareNewestFirst, removeById, replaceTemp, settlementDelta, tempId, upsertById } from "@/lib/optimistic";
+import { expenseKeys, refreshMoney } from "@/lib/queries/expenses";
+import { pendingWrites } from "@/lib/realtime/pending";
+import { countsTowardBalances } from "@/lib/settle";
+import { fetchSettlement, fetchSettlements } from "@/lib/settlements-data";
 import { createClient } from "@/lib/supabase/client";
-import type { Settlement, SettlementMethod } from "@/lib/supabase/types";
+import type { GroupBalance, Settlement, SettlementMethod } from "@/lib/supabase/types";
 
 export const settlementKeys = {
   list: (groupId: string) => ["group", groupId, "settlements"] as const,
@@ -21,19 +27,41 @@ async function rpc<T>(call: PromiseLike<{ data: T | null; error: unknown }>): Pr
   return data as T;
 }
 
-/**
- * Settlements move balances: refetch them, the balances view and Home. Fire-and-forget on purpose:
- * returning the promise would make mutateAsync wait for every refetch, delaying the success screen.
- */
-function useInvalidate(groupId: string) {
-  const qc = useQueryClient();
-  return () =>
-    void Promise.all([
-      qc.invalidateQueries({ queryKey: settlementKeys.list(groupId) }),
-      qc.invalidateQueries({ queryKey: expenseKeys.balances(groupId) }),
-      qc.invalidateQueries({ queryKey: expenseKeys.allBalances }),
-      qc.invalidateQueries({ queryKey: groupKeys.all }),
-    ]);
+type Snapshot = { list?: Settlement[]; balances?: GroupBalance[] };
+
+async function snapshot(qc: QueryClient, groupId: string): Promise<Snapshot> {
+  await qc.cancelQueries({ queryKey: settlementKeys.list(groupId) });
+  await qc.cancelQueries({ queryKey: expenseKeys.balances(groupId) });
+  return {
+    list: qc.getQueryData<Settlement[]>(settlementKeys.list(groupId)),
+    balances: qc.getQueryData<GroupBalance[]>(expenseKeys.balances(groupId)),
+  };
+}
+
+function rollback(qc: QueryClient, groupId: string, s: Snapshot | undefined) {
+  if (!s) return;
+  qc.setQueryData(settlementKeys.list(groupId), s.list);
+  qc.setQueryData(expenseKeys.balances(groupId), s.balances);
+}
+
+/** Replace a settlement in the cache and move the balance preview by the change in what counts. */
+function applyChange(qc: QueryClient, groupId: string, before: Settlement | null, after: Settlement | null) {
+  qc.setQueryData<Settlement[]>(settlementKeys.list(groupId), (list) =>
+    after ? upsertById(list, after, compareNewestFirst) : before ? removeById(list, before.id) : list,
+  );
+  qc.setQueryData<GroupBalance[]>(expenseKeys.balances(groupId), (b) => {
+    if (!b) return b;
+    let next = b;
+    if (before && countsTowardBalances(before)) next = applyDelta(next, settlementDelta(before.from_member, before.to_member, before.amount_base), -1);
+    if (after && countsTowardBalances(after)) next = applyDelta(next, settlementDelta(after.from_member, after.to_member, after.amount_base));
+    return next;
+  });
+}
+
+function useFailureToast() {
+  const { show } = useToast();
+  return (what: string, err: unknown, retry: () => void) =>
+    show({ message: `${what}: ${friendlyError(err)}`, duration: 8000, action: { label: "Retry", onClick: retry } });
 }
 
 export interface NewSettlement {
@@ -42,14 +70,20 @@ export interface NewSettlement {
   amount: number;
   method: SettlementMethod;
   clientId: string;
+  /** The Settle sheet shows its own inline error instead of a toast. */
+  silent?: boolean;
 }
 
-export function useRecordSettlement(groupId: string) {
-  const invalidate = useInvalidate(groupId);
-  return useMutation({
-    mutationFn: (s: NewSettlement) =>
-      rpc(
-        createClient().rpc("record_settlement", {
+/** Record a payment, optimistically (pending; or confirmed when I'm the receiver). */
+export function useRecordSettlement(groupId: string, ctx: { myUserId: string; myMemberId: string; currency: CurrencyCode }) {
+  const qc = useQueryClient();
+  const fail = useFailureToast();
+  const self = useRef<(v: NewSettlement) => void>(() => {});
+  const m = useMutation({
+    mutationFn: async (s: NewSettlement) => {
+      const supabase = createClient();
+      const id = await rpc(
+        supabase.rpc("record_settlement", {
           p_group_id: groupId,
           p_from_member: s.from,
           p_to_member: s.to,
@@ -57,45 +91,122 @@ export function useRecordSettlement(groupId: string) {
           p_method: s.method,
           p_client_id: s.clientId,
         }),
-      ),
-    onSettled: () => invalidate(),
-  });
-}
-
-function useSimple(groupId: string, fn: "confirm_settlement" | "dispute_settlement" | "restore_settlement") {
-  const invalidate = useInvalidate(groupId);
-  return useMutation({
-    mutationFn: (id: string) => rpc(createClient().rpc(fn, { p_settlement_id: id })),
-    onSettled: () => invalidate(),
-  });
-}
-
-export const useConfirmSettlement = (groupId: string) => useSimple(groupId, "confirm_settlement");
-export const useDisputeSettlement = (groupId: string) => useSimple(groupId, "dispute_settlement");
-export const useRestoreSettlement = (groupId: string) => useSimple(groupId, "restore_settlement");
-
-export function useUpdateSettlement(groupId: string) {
-  const invalidate = useInvalidate(groupId);
-  return useMutation({
-    mutationFn: (v: { id: string; amount: number; method: SettlementMethod }) =>
-      rpc(createClient().rpc("update_settlement", { p_settlement_id: v.id, p_amount: v.amount, p_method: v.method })),
-    onSettled: () => invalidate(),
-  });
-}
-
-/** Soft delete; disappears from the list immediately, comes back on error. */
-export function useDeleteSettlement(groupId: string) {
-  const qc = useQueryClient();
-  const invalidate = useInvalidate(groupId);
-  return useMutation({
-    mutationFn: (id: string) => rpc(createClient().rpc("delete_settlement", { p_settlement_id: id })),
-    onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: settlementKeys.list(groupId) });
-      const previous = qc.getQueryData<Settlement[]>(settlementKeys.list(groupId));
-      qc.setQueryData<Settlement[]>(settlementKeys.list(groupId), (list) => list?.filter((s) => s.id !== id));
-      return { previous };
+      );
+      pendingWrites.start(id);
+      return fetchSettlement(supabase, id);
     },
-    onError: (_e, _id, ctx) => qc.setQueryData(settlementKeys.list(groupId), ctx?.previous),
-    onSettled: () => invalidate(),
+    onMutate: async (s) => {
+      pendingWrites.start(s.clientId);
+      const snap = await snapshot(qc, groupId);
+      const now = new Date().toISOString();
+      applyChange(qc, groupId, null, {
+        id: tempId(s.clientId),
+        group_id: groupId,
+        from_member: s.from,
+        to_member: s.to,
+        amount: s.amount,
+        currency: ctx.currency,
+        amount_base: s.amount,
+        method: s.method,
+        status: s.to === ctx.myMemberId ? "confirmed" : "pending",
+        client_id: s.clientId,
+        created_by: ctx.myUserId,
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+      });
+      return snap;
+    },
+    onSuccess: (row, s) => {
+      qc.setQueryData<Settlement[]>(settlementKeys.list(groupId), (list) => replaceTemp(list, tempId(s.clientId), row));
+    },
+    onError: (err, s, snap) => {
+      rollback(qc, groupId, snap);
+      if (!s.silent) fail("Couldn't record the payment", err, () => self.current(s));
+    },
+    onSettled: (row, _e, s) => {
+      pendingWrites.finish(s.clientId, row?.id);
+      refreshMoney(qc, groupId);
+    },
   });
+  self.current = m.mutate;
+  return m;
 }
+
+/** Confirm / dispute / edit / delete / restore: all optimistic on an existing row. */
+function useChange<V extends { settlement: Settlement }>(
+  groupId: string,
+  run: (v: V) => PromiseLike<{ data: unknown; error: unknown }>,
+  next: (v: V) => Settlement | null,
+  label: string,
+) {
+  const qc = useQueryClient();
+  const fail = useFailureToast();
+  const self = useRef<(v: V) => void>(() => {});
+  const m = useMutation({
+    mutationFn: (v: V) => rpc(run(v)),
+    onMutate: async (v) => {
+      pendingWrites.start(v.settlement.id);
+      const snap = await snapshot(qc, groupId);
+      applyChange(qc, groupId, v.settlement, next(v));
+      return snap;
+    },
+    onError: (err, v, snap) => {
+      rollback(qc, groupId, snap);
+      fail(label, err, () => self.current(v));
+    },
+    onSettled: (_r, _e, v) => {
+      pendingWrites.finish(v.settlement.id);
+      void qc.invalidateQueries({ queryKey: settlementKeys.list(groupId) });
+      refreshMoney(qc, groupId);
+    },
+  });
+  self.current = m.mutate;
+  return m;
+}
+
+export const useConfirmSettlement = (groupId: string) =>
+  useChange<{ settlement: Settlement }>(
+    groupId,
+    (v) => createClient().rpc("confirm_settlement", { p_settlement_id: v.settlement.id }),
+    (v) => ({ ...v.settlement, status: "confirmed" }),
+    "Couldn't confirm the payment",
+  );
+
+export const useDisputeSettlement = (groupId: string) =>
+  useChange<{ settlement: Settlement }>(
+    groupId,
+    (v) => createClient().rpc("dispute_settlement", { p_settlement_id: v.settlement.id }),
+    (v) => ({ ...v.settlement, status: "disputed" }),
+    "Couldn't dispute the payment",
+  );
+
+export const useUpdateSettlement = (groupId: string, myMemberId: string) =>
+  useChange<{ settlement: Settlement; amount: number; method: SettlementMethod }>(
+    groupId,
+    (v) => createClient().rpc("update_settlement", { p_settlement_id: v.settlement.id, p_amount: v.amount, p_method: v.method }),
+    (v) => ({
+      ...v.settlement,
+      amount: v.amount,
+      amount_base: v.amount,
+      method: v.method,
+      status: v.settlement.to_member === myMemberId ? "confirmed" : "pending",
+    }),
+    "Couldn't change the payment",
+  );
+
+export const useDeleteSettlement = (groupId: string) =>
+  useChange<{ settlement: Settlement }>(
+    groupId,
+    (v) => createClient().rpc("delete_settlement", { p_settlement_id: v.settlement.id }),
+    () => null,
+    "Couldn't delete the payment",
+  );
+
+export const useRestoreSettlement = (groupId: string) =>
+  useChange<{ settlement: Settlement }>(
+    groupId,
+    (v) => createClient().rpc("restore_settlement", { p_settlement_id: v.settlement.id }),
+    (v) => ({ ...v.settlement, deleted_at: null }),
+    "Couldn't restore the payment",
+  );

@@ -238,7 +238,22 @@ export interface Database {
         };
         Insert: never;
         Update: never;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "activity_actor_member_fkey";
+            columns: ["actor_member"];
+            isOneToOne: false;
+            referencedRelation: "group_members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activity_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "groups";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {

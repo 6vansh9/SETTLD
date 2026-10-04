@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { Amount, Avatar } from "@/components/ui";
+import { Amount, AnimatedAmount, Avatar } from "@/components/ui";
 import { memberAvatar, type GroupWithMembers } from "@/lib/groups-data";
 import type { Transfer } from "@/lib/simplify";
 import type { GroupBalance } from "@/lib/supabase/types";
@@ -62,7 +62,7 @@ export function BalancesTab({
                     {b.net > 0 ? "Gets back" : b.net < 0 ? "Owes" : "Settled up"}
                   </span>
                 </span>
-                <Amount
+                <AnimatedAmount
                   amount={Math.abs(b.net)}
                   currency={group.base_currency}
                   size="md"

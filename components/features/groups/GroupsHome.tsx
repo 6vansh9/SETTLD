@@ -1,16 +1,17 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, Plus } from "lucide-react";
+import { Activity, ChevronDown, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Amount, Avatar, Button, CardStack, PrivacyToggle, Title } from "@/components/ui";
+import { Amount, AnimatedAmount, Avatar, Button, CardStack, PrivacyToggle, Title } from "@/components/ui";
 import { convertedTotal, myNetInGroup, overallTotals } from "@/lib/balances";
 import { partitionGroups } from "@/lib/groups";
 import type { GroupWithMembers } from "@/lib/groups-data";
 import { fade, spring } from "@/lib/motion";
 import { useAllBalances } from "@/lib/queries/expenses";
 import { useGroups } from "@/lib/queries/groups";
+import { useMyActivityRealtime } from "@/lib/realtime/useMyActivityRealtime";
 import { useProfile } from "@/lib/queries/profile";
 import type { GroupBalance, Profile } from "@/lib/supabase/types";
 import { CreateGroupSheet } from "./CreateGroupSheet";
@@ -35,6 +36,11 @@ export function GroupsHome({
   const [creating, setCreating] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const reduce = useReducedMotion();
+  // Live: any activity in any of my groups refreshes cards and the overall total.
+  useMyActivityRealtime(
+    groups.map((g) => g.id),
+    me.id,
+  );
   const { active, archived } = partitionGroups(groups);
   const overall = convertedTotal(overallTotals(groups, balances, me.id, me.default_currency), me.default_currency, rates);
   const netIn = (g: GroupWithMembers) => myNetInGroup(g, balances, me.id);
@@ -44,6 +50,13 @@ export function GroupsHome({
       <header className="flex items-center justify-between">
         <span className="micro">Hey, {me.name.split(" ")[0]}</span>
         <div className="flex items-center gap-2">
+          <Link
+            href="/activity"
+            aria-label="Activity across all groups"
+            className="flex size-11 items-center justify-center rounded-full border-[1.5px] border-ink/[0.08] bg-surface"
+          >
+            <Activity className="size-5" strokeWidth={2.25} />
+          </Link>
           <PrivacyToggle />
           <Link href="/me" aria-label="Your profile" className="rounded-full">
             <Avatar name={me.name} color={me.avatar_color} size="lg" className="size-11" />
@@ -84,7 +97,7 @@ export function GroupsHome({
                   ≈
                 </span>
               )}
-              <Amount
+              <AnimatedAmount
                 amount={Math.abs(overall.total)}
                 currency={me.default_currency}
                 size="xl"

@@ -34,6 +34,7 @@ export function SettleSheet({
   plan,
   prefill,
   onSettledUp,
+  onTypingChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -44,6 +45,8 @@ export function SettleSheet({
   prefill: Transfer | null;
   /** Fired when a payment clears the whole planned debt (confetti). */
   onSettledUp: () => void;
+  /** Presence: true while this sheet is open (others see "… is settling up"). */
+  onTypingChange?: (typing: boolean) => void;
 }) {
   const [step, setStep] = useState<Step>("pick");
   const [pending, setPending] = useState<Pending | null>(null);
@@ -51,9 +54,13 @@ export function SettleSheet({
   const [recorded, setRecorded] = useState<{ p: Pending; method: SettlementMethod; byReceiver: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const clientId = useRef("");
-  const record = useRecordSettlement(group.id);
+  const record = useRecordSettlement(group.id, { myUserId: me.user_id ?? "", myMemberId: me.id, currency: group.base_currency });
   // The plan as it was when the sheet opened: "did this clear the debt?" compares against it.
   const planAtOpen = useRef<Transfer[]>(plan);
+
+  useEffect(() => {
+    onTypingChange?.(open);
+  }, [open, onTypingChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -79,7 +86,8 @@ export function SettleSheet({
     async (p: Pending, method: SettlementMethod) => {
       setError(null);
       try {
-        await record.mutateAsync({ ...p, method, clientId: clientId.current });
+        // Optimistic: the payment shows in the group immediately; the sheet waits for the server.
+        await record.mutateAsync({ ...p, method, clientId: clientId.current, silent: true });
         setRecorded({ p, method, byReceiver: p.to === me.id });
         setStep("done");
         if (clearsDebt(planAtOpen.current, p.from, p.to, p.amount)) onSettledUp();

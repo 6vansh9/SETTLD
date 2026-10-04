@@ -32,7 +32,8 @@ export function SettlementSheet({
 }) {
   const [amountOpen, setAmountOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const update = useUpdateSettlement(group.id);
+  const myMemberId = group.members.find((m) => m.user_id === myUserId && !m.left_at)?.id ?? "";
+  const update = useUpdateSettlement(group.id, myMemberId);
   const confirm = useConfirmSettlement(group.id);
   const dispute = useDisputeSettlement(group.id);
   const busy = update.isPending || confirm.isPending || dispute.isPending;
@@ -87,10 +88,10 @@ export function SettlementSheet({
 
             {(perms.canConfirm || perms.canDispute) && (
               <div className="mt-6 grid grid-cols-2 gap-2">
-                <Button variant="secondary" disabled={busy || !perms.canDispute} onClick={() => run(dispute.mutateAsync(s.id))}>
+                <Button variant="secondary" disabled={busy || !perms.canDispute} onClick={() => run(dispute.mutateAsync({ settlement: s }))}>
                   Didn&apos;t get it
                 </Button>
-                <Button disabled={busy || !perms.canConfirm} onClick={() => run(confirm.mutateAsync(s.id))}>
+                <Button disabled={busy || !perms.canConfirm} onClick={() => run(confirm.mutateAsync({ settlement: s }))}>
                   Confirm
                 </Button>
               </div>
@@ -120,7 +121,7 @@ export function SettlementSheet({
           onClose={() => setAmountOpen(false)}
           onDone={(amount) => {
             setAmountOpen(false);
-            run(update.mutateAsync({ id: s.id, amount, method: s.method }));
+            run(update.mutateAsync({ settlement: s, amount, method: s.method }));
           }}
         />
       )}

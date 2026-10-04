@@ -1,9 +1,11 @@
 export { Amount, type AmountProps, type AmountSize } from "./Amount";
+export { AnimatedAmount } from "./AnimatedAmount";
 export { Avatar, AvatarStack, initials, type AvatarProps, type AvatarStackProps } from "./Avatar";
 export { Button, type ButtonProps, type ButtonVariant } from "./Button";
 export { Confetti } from "./Confetti";
 export { Card, CardStack, type CardProps } from "./Card";
 export { Numpad, type NumpadProps } from "./Numpad";
+export { PresencePill, type PillItem } from "./PresencePill";
 export { PrivacyToggle } from "./PrivacyToggle";
 export { Sheet, type SheetProps } from "./Sheet";
 export { Switch, type SwitchProps } from "./Switch";

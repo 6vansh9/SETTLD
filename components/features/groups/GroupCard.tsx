@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Amount, AvatarStack, Card } from "@/components/ui";
+import { AnimatedAmount, AvatarStack, Card } from "@/components/ui";
 import { microDate } from "@/lib/groups";
 import { activeMembers, memberAvatar, type GroupWithMembers } from "@/lib/groups-data";
 import { pastelVar } from "@/lib/pastels";
@@ -29,7 +29,7 @@ export function GroupCard({ group, href, myNet = 0 }: { group: GroupWithMembers;
           {myNet > 0 ? "You're owed" : myNet < 0 ? "You owe" : "All settled"}
         </span>
         {/* Dark text on pastel: owe/owed reds and greens fail contrast here; the label says which. */}
-        <Amount amount={Math.abs(myNet)} currency={group.base_currency} size="lg" />
+        <AnimatedAmount amount={Math.abs(myNet)} currency={group.base_currency} size="lg" />
       </div>
     </Card>
   );

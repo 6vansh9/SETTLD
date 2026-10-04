@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AuthSync } from "@/components/providers/AuthSync";
 import { PrivacyProvider } from "@/components/providers/PrivacyProvider";
 import { ProfileSync } from "@/components/providers/ProfileSync";
+import { ToastProvider } from "@/components/providers/ToastProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -20,7 +21,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <AuthSync />
           <ProfileSync />
           {/* "user": Framer Motion drops transform animations when prefers-reduced-motion is set */}
-          <MotionConfig reducedMotion="user">{children}</MotionConfig>
+          <MotionConfig reducedMotion="user">
+            <ToastProvider>{children}</ToastProvider>
+          </MotionConfig>
         </PrivacyProvider>
       </ThemeProvider>
     </QueryClientProvider>

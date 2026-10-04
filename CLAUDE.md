@@ -125,7 +125,6 @@
 
 **Notes for later:** the receipt card is a placeholder (M7, `@vercel/og`). Edit prefill for a foreign expense labels the stored rate "your rate". Some UPI apps (notably GPay) can refuse P2P payments opened from links; the flow then falls back to "No" → Mark as paid.
 
-**Next: Milestone 6 — Realtime layer** (Supabase Realtime subscriptions, optimistic updates, activity feed, presence pill).
 
 ### Deploy + sign-in fixes (2026-10-04)
 
@@ -140,3 +139,31 @@
 - `/` is a public homepage (hero, Get started → `/signup`, Sign in → `/login`, How it works, final CTA). Signed-in users are redirected to `/groups` or `/onboarding`.
 - `/signup` and `/login` share `components/features/auth/AuthScreen.tsx` and keep `?next=` (invites) when linking to each other. Still passwordless (Google or email link/code). Email sign-in uses `shouldCreateUser: false`, so an unknown email gets "No Settld account uses that email yet" (Supabase `otp_disabled`) with a link to sign up. Google always creates or reuses.
 - The Join screen's primary CTA is "Join with a free account" (`/signup`), plus "I already have an account" (`/login`).
+
+### Milestone 6 — Realtime layer ✅ (2026-10-05)
+
+- **`supabase/migrations/0006_realtime.sql`** (idempotent): adds expenses, expense_payers, expense_splits, settlements, activity and group_members to `supabase_realtime`. Realtime Authorization policies on `realtime.messages` let only current members join the **private** channel `group:<uuid>` (`realtime_group_id()` parses the topic). `take_ghost_slot` now logs `ghost_name`. PGlite: 21 checks (publication contents; RLS on every published table for member/non-member/anon; private channel join and send for member/non-member/anon/malformed; claim takes effect). Earlier suites pass.
+- **Live sync** (`lib/realtime/useGroupRealtime.ts`):
+  - **Channel:** private `group:<id>`, postgres_changes on expenses, settlements, group_members and activity (INSERT), filtered by `group_id`; unsubscribes on leave.
+  - **Refetching:** events are batched (120 ms) into invalidations of the lists, and `group_balances` is always re-read (never rebuilt from events).
+  - **Catching up:** refetches on reconnect, focus, visibility and `online`.
+  - **Fallback:** if the private join is refused before ever joining, it falls back to a public data-only channel (RLS still filters rows) with presence off, so data sync never depends on presence authorization.
+  - **Latency log:** opt-in via `localStorage.setItem("settld-debug-realtime","1")` (ms after commit).
+  - **`/groups` and `/activity`:** `useMyActivityRealtime` subscribes to activity with `group_id=in.(…)`.
+- **Optimistic UI** (`lib/queries/expenses.ts`, `lib/queries/settlements.ts`, `lib/optimistic.ts` tested):
+  - **Instant updates:** create, edit, delete and restore expenses, plus record, confirm, dispute, edit, delete and restore settlements, update the list and a balance preview at once.
+  - **Swap:** on success the temp row (`temp-<client_id>`) is replaced with the server row.
+  - **Failure:** rollback plus a global toast "Couldn't … · Retry". Retry reuses the same client_id, so it's idempotent.
+  - **Own echoes:** `lib/realtime/pending.ts` (tested) ignores realtime events for my own client_ids and row ids, during the write and for 5 s after.
+  - **Lifecycle:** expense mutations live in the always-mounted `ExpenseEditor`, not in the form inside the sheet. The editor closes on submit.
+- **Global toasts:** `components/providers/ToastProvider.tsx` (`useToast().show`).
+- **Motion:** `ui/AnimatedAmount` counts balances up/down (header, Balances tab, Home total, group cards); it jumps under reduced motion.
+- **Activity:** `lib/activity.ts` (sentences, tested; "You" for the viewer as actor *or* receiver), `lib/activity-data.ts`, Activity tab on `/g/[id]` (tap opens the item), `/activity` across groups with group color stripes, linked from the `/groups` header. Deep links: `/g/<id>?open=expense:<id>|settlement:<id>|members` and `?tab=activity`.
+- **Presence pill** (`ui/PresencePill`, `features/activity/usePillQueue`, `lib/presence.ts` tested):
+  - Presence `{member_id, typing, screen}` is throttled to 1/s and only sent after joining.
+  - "Aman is adding an expense…" / "… is settling up…" shows while it lasts.
+  - Others' activity is queued: one at a time, 3 s each, tap to open.
+  - **Enter-only:** an AnimatePresence exit held the previous pill on screen.
+- Verified in a headless browser with mocked Supabase: 21 checks (optimistic add before a 1.5 s server, balance preview, swap without duplicates, failure rollback + Retry with the same client_id, delete/undo, activity sentences + tap-to-open, pill queue timing + presence fallback), no page errors. Bugs found and fixed by it: receiver not shown as "You", the stuck pill exit, presence pushed before join. Tests: 183 passing. **Not verified here:** real cross-device realtime (needs 0006 applied and two accounts); see the test plan.
+
+**Next: Milestone 7 — Headline features** (command bar, Debt Graph, receipt card renderer, then Split Room).

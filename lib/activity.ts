@@ -1,0 +1,91 @@
+import { isCurrencyCode, type CurrencyCode } from "@/lib/money";
+
+/** An activity row as fetched, with the actor's member row embedded. */
+export interface ActivityRow {
+  id: string;
+  group_id: string;
+  actor_member: string | null;
+  kind: string;
+  entity_id: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+  actor?: { display_name: string; user_id: string | null; profile?: { avatar_color: string } | null } | null;
+}
+
+export type ActivityTarget = { type: "expense" | "settlement"; id: string } | { type: "members" } | null;
+
+export interface ActivityLine {
+  text: string;
+  amount: { value: number; currency: CurrencyCode } | null;
+  target: ActivityTarget;
+}
+
+const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+const first = (name: string) => name.split(" ")[0];
+
+/**
+ * Human sentence for an activity row ("Aman added Dinner", "You paid Aman"), plus the amount to
+ * show with <Amount /> and where tapping should go. Names are first names; the viewer is "You".
+ */
+export function describeActivity(row: ActivityRow, myUserId: string, myDisplayName?: string | null): ActivityLine {
+  const p = row.payload ?? {};
+  const actorIsMe = !!row.actor?.user_id && row.actor.user_id === myUserId;
+  // My name as stored on the row's group (payloads carry display names): "You" wherever it appears.
+  const myName = myDisplayName ?? (actorIsMe && row.actor ? row.actor.display_name : null);
+  const who = actorIsMe ? "You" : first(row.actor?.display_name ?? "Someone");
+  // Payment names come from the payload (display names at the time); "You" when it's the actor and me.
+  const person = (name: unknown) => {
+    const n = str(name);
+    if (!n) return "someone";
+    return myName && n === myName ? "You" : first(n);
+  };
+  const title = str(p.title) ?? "an expense";
+  const currency = str(p.currency);
+  const amountValue = typeof p.amount === "number" ? p.amount : typeof p.amount === "string" ? Number(p.amount) : null;
+  const amount = currency && isCurrencyCode(currency) && amountValue !== null && Number.isFinite(amountValue) ? { value: amountValue, currency } : null;
+  const expense = row.entity_id ? ({ type: "expense", id: row.entity_id } as const) : null;
+  const settlement = row.entity_id ? ({ type: "settlement", id: row.entity_id } as const) : null;
+  const possessive = (n: string) => (n === "You" ? "your" : `${n}'s`);
+
+  switch (row.kind) {
+    case "expense_created":
+      return { text: `${who} added ${title}`, amount, target: expense };
+    case "expense_updated":
+      return { text: `${who} edited ${title}`, amount, target: expense };
+    case "expense_deleted":
+      return { text: `${who} deleted ${title}`, amount, target: null };
+    case "expense_restored":
+      return { text: `${who} restored ${title}`, amount, target: expense };
+    case "settlement_recorded":
+      return { text: `${person(p.from)} paid ${person(p.to)}`, amount, target: settlement };
+    case "settlement_confirmed":
+      return { text: `${who} confirmed ${possessive(person(p.from))} payment`, amount, target: settlement };
+    case "settlement_disputed":
+      return { text: `${who} disputed ${possessive(person(p.from))} payment`, amount, target: settlement };
+    case "settlement_updated":
+      return { text: `${who} changed a payment to ${person(p.to)}`, amount, target: settlement };
+    case "settlement_deleted":
+      return { text: `${who} deleted a payment to ${person(p.to)}`, amount, target: null };
+    case "settlement_restored":
+      return { text: `${who} restored a payment to ${person(p.to)}`, amount, target: settlement };
+    case "member_joined":
+      return { text: `${who} joined`, amount: null, target: { type: "members" } };
+    case "member_removed":
+      return { text: `${who} removed ${first(str(p.name) ?? "someone")}`, amount: null, target: { type: "members" } };
+    case "ghost_claimed": {
+      const ghost = str(p.ghost_name);
+      return {
+        text: ghost ? `${first(ghost)} was claimed by ${actorIsMe ? "you" : who}` : `${who} claimed a spot`,
+        amount: null,
+        target: { type: "members" },
+      };
+    }
+    default:
+      return { text: `${who} made a change`, amount: null, target: null };
+  }
+}
+
+/** Pill wording for a live event: same sentence, with "just" for immediacy where it reads well. */
+export function pillText(line: ActivityLine): string {
+  return line.text.replace(/^(\S+) (added|paid|settled|joined|edited|deleted|confirmed|disputed)\b/, "$1 just $2");
+}

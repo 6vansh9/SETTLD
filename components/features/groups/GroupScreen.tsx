@@ -3,21 +3,28 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Plus, Settings2, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityList } from "@/components/features/activity/ActivityList";
+import { usePillQueue } from "@/components/features/activity/usePillQueue";
+import { useToast } from "@/components/providers/ToastProvider";
 import { BalancesTab } from "@/components/features/expense/BalancesTab";
 import { ExpenseDetailSheet } from "@/components/features/expense/ExpenseDetailSheet";
 import { ExpenseEditor } from "@/components/features/expense/ExpenseEditor";
 import { ExpenseList } from "@/components/features/expense/ExpenseList";
 import { SettleSheet } from "@/components/features/settle/SettleSheet";
 import { SettlementSheet } from "@/components/features/settle/SettlementSheet";
-import { Amount, Avatar, Button, Confetti, SplitBar, Toast, type ToastData } from "@/components/ui";
+import { AnimatedAmount, Avatar, Button, Confetti, PresencePill, SplitBar } from "@/components/ui";
+import { describeActivity, pillText, type ActivityRow, type ActivityTarget } from "@/lib/activity";
 import { cn } from "@/lib/cn";
 import type { ExpenseWithLines } from "@/lib/expenses-data";
-import { friendlyError, GROUP_TYPES } from "@/lib/groups";
+import { GROUP_TYPES } from "@/lib/groups";
 import { activeMembers, memberAvatar, myMember, type GroupWithMembers } from "@/lib/groups-data";
 import { CURRENCIES } from "@/lib/money";
 import { fade, spring } from "@/lib/motion";
 import { pastelVar, type Pastel } from "@/lib/pastels";
+import { presenceText } from "@/lib/presence";
+import { useGroupActivity } from "@/lib/queries/activity";
 import { useBalances, useDeleteExpense, useExpenses, useRestoreExpense } from "@/lib/queries/expenses";
 import { useGroup } from "@/lib/queries/groups";
 import {
@@ -27,6 +34,7 @@ import {
   useRestoreSettlement,
   useSettlements,
 } from "@/lib/queries/settlements";
+import { useGroupRealtime } from "@/lib/realtime/useGroupRealtime";
 import { myTransfers, settlementPlan } from "@/lib/settle";
 import type { Transfer } from "@/lib/simplify";
 import type { GroupBalance, Settlement } from "@/lib/supabase/types";
@@ -57,6 +65,7 @@ export function GroupScreen({
   initialSettlements: Settlement[];
   myUserId: string;
 }) {
+  const { show } = useToast();
   const { data: group } = useGroup(initialGroup.id, initialGroup);
   const { data: expenses = initialExpenses } = useExpenses(initialGroup.id, initialExpenses);
   const { data: balances = initialBalances } = useBalances(initialGroup.id, initialBalances);
@@ -76,14 +85,64 @@ export function GroupScreen({
   const [sheet, setSheet] = useState<"invite" | "members" | "settings" | null>(null);
   const [editor, setEditor] = useState<{ expense: ExpenseWithLines | null } | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastData | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
 
   const g = group ?? initialGroup;
   const me = myMember(g, myUserId);
   const members = activeMembers(g);
   const detail = expenses.find((e) => e.id === detailId) ?? null;
   const openSettlement = settlements.find((x) => x.id === settlementId) ?? null;
+  const { data: activity = [], isLoading: activityLoading } = useGroupActivity(initialGroup.id, tab === "activity");
+
+  // Open an item from the activity feed, the pill, or /activity (?open=expense:<id>).
+  const latest = useRef({ expenses, settlements });
+  latest.current = { expenses, settlements };
+  const openTarget = useCallback(
+    (target: ActivityTarget) => {
+      if (!target) return;
+      if (target.type === "members") return setSheet("members");
+      const list = target.type === "expense" ? latest.current.expenses : latest.current.settlements;
+      if (!list.some((x) => x.id === target.id)) {
+        show({ message: target.type === "expense" ? "That expense was deleted." : "That payment was deleted." });
+        return;
+      }
+      setTab("expenses");
+      if (target.type === "expense") setDetailId(target.id);
+      else setSettlementId(target.id);
+    },
+    [show],
+  );
+
+  const params = useSearchParams();
+  useEffect(() => {
+    const open = params.get("open");
+    if (params.get("tab") === "activity") setTab("activity");
+    if (!open) return;
+    const [type, id] = open.split(":");
+    if (type === "members") openTarget({ type: "members" });
+    else if ((type === "expense" || type === "settlement") && id) openTarget({ type, id });
+    // Only on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Realtime: live sync, presence, and other people's activity in the pill.
+  const names = useMemo(() => new Map(g.members.map((m) => [m.id, m.display_name])), [g.members]);
+  const membersRef = useRef(g.members);
+  membersRef.current = g.members;
+  const pushRef = useRef<(item: import("@/components/ui").PillItem) => void>(() => {});
+  const onActivity = useCallback(
+    (a: ActivityRow) => {
+      const actor = membersRef.current.find((m) => m.id === a.actor_member);
+      const myName = membersRef.current.find((m) => m.user_id === myUserId)?.display_name;
+      const line = describeActivity({ ...a, actor: actor ? { display_name: actor.display_name, user_id: actor.user_id } : null }, myUserId, myName);
+      pushRef.current({ key: `act:${a.id}`, text: pillText(line), amount: line.amount, onTap: () => openTarget(line.target) });
+    },
+    [myUserId, openTarget],
+  );
+  const { status, presence, setScreen } = useGroupRealtime(initialGroup.id, me?.id ?? "", onActivity);
+  const pill = usePillQueue(me ? presenceText(presence, me.id, names) : null);
+  pushRef.current = pill.push;
+  const screen = editor ? "add-expense" : settle ? "settle" : "group";
+  useEffect(() => setScreen(screen), [screen, setScreen]);
 
   // Who pays whom: simplified from the balances view, or raw debts net of (undisputed) payments.
   let plan: Transfer[] = [];
@@ -105,45 +164,35 @@ export function GroupScreen({
   // Removed from the group (or it was deleted) while the screen was open.
   if (group === null || !me) return <NotInGroup />;
 
-  const errorToast = (err: unknown) => setToast({ id: `err-${Date.now()}`, message: friendlyError(err) });
+  // Optimistic writes: failures roll back and show "… · Retry" from the hooks themselves.
   const respond = (x: Settlement, action: "confirm" | "dispute") => {
     setBusySettlementId(x.id);
-    (action === "confirm" ? confirmSettlement : disputeSettlement).mutate(x.id, {
-      onError: errorToast,
-      onSettled: () => setBusySettlementId(null),
-    });
+    (action === "confirm" ? confirmSettlement : disputeSettlement).mutate({ settlement: x }, { onSettled: () => setBusySettlementId(null) });
   };
   const removeSettlement = (x: Settlement) => {
     setSettlementId(null);
-    deleteSettlement.mutate(x.id, {
-      onSuccess: () =>
-        setToast({
-          id: `sdel-${x.id}-${Date.now()}`,
-          message: "Payment deleted",
-          duration: UNDO_MS,
-          action: { label: "Undo", onClick: () => restoreSettlement.mutate(x.id, { onError: errorToast }) },
-        }),
-      onError: errorToast,
-    });
+    deleteSettlement.mutate(
+      { settlement: x },
+      {
+        onSuccess: () =>
+          show({
+            message: "Payment deleted",
+            duration: UNDO_MS,
+            action: { label: "Undo", onClick: () => restoreSettlement.mutate({ settlement: x }) },
+          }),
+      },
+    );
   };
 
   const remove = (e: ExpenseWithLines) => {
     setDetailId(null);
-    deleteExpense.mutate(e.id, {
+    deleteExpense.mutate(e, {
       onSuccess: () =>
-        setToast({
-          id: `del-${e.id}-${Date.now()}`,
+        show({
           message: `Deleted “${e.title}”`,
           duration: UNDO_MS,
-          action: {
-            label: "Undo",
-            onClick: () =>
-              restoreExpense.mutate(e.id, {
-                onError: (err) => setToast({ id: `err-${Date.now()}`, message: friendlyError(err) }),
-              }),
-          },
+          action: { label: "Undo", onClick: () => restoreExpense.mutate(e) },
         }),
-      onError: (err) => setToast({ id: `err-${Date.now()}`, message: friendlyError(err) }),
     });
   };
 
@@ -204,12 +253,12 @@ export function GroupScreen({
         <div className="mt-6 flex items-end justify-between gap-3">
           <div>
             <p className="micro opacity-60">{myNet > 0 ? "You're owed" : myNet < 0 ? "You owe" : "You're all settled"}</p>
-            <Amount amount={Math.abs(myNet)} currency={g.base_currency} size="lg" className="mt-1" />
+            <AnimatedAmount amount={Math.abs(myNet)} currency={g.base_currency} size="lg" className="mt-1" />
           </div>
           {totalSpent > 0 && (
             <div className="text-right">
               <p className="micro opacity-60">Group spend</p>
-              <Amount amount={totalSpent} currency={g.base_currency} size="sm" className="mt-1" />
+              <AnimatedAmount amount={totalSpent} currency={g.base_currency} size="sm" className="mt-1" />
             </div>
           )}
         </div>
@@ -257,6 +306,13 @@ export function GroupScreen({
           )}
         </div>
       </header>
+
+      {status === "reconnecting" && (
+        <p role="status" className="mx-5 mt-3 flex items-center justify-center gap-2 text-[12px] font-semibold text-ink/50">
+          <span className="size-2 animate-pulse rounded-full bg-butter" aria-hidden />
+          Reconnecting… changes will catch up
+        </p>
+      )}
 
       {archived && (
         <p className="mx-5 mt-4 rounded-2xl bg-ink/5 px-4 py-3 text-[14px] font-medium text-ink/70">
@@ -361,7 +417,19 @@ export function GroupScreen({
             onSettle={(t) => setSettle({ prefill: t })}
           />
         )}
-        {(tab === "graph" || tab === "activity" || (expenses.length === 0 && (tab === "balances" || settlements.length === 0))) && (
+        {tab === "activity" && activity.length > 0 && (
+          <ActivityList rows={activity} myUserId={myUserId} myDisplayName={me.display_name} onOpen={(_row, target) => openTarget(target)} />
+        )}
+        {tab === "activity" && activityLoading && activity.length === 0 && (
+          <div className="space-y-2" aria-label="Loading activity">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-14 animate-pulse rounded-2xl" style={{ backgroundColor: pastelVar(g.color), opacity: 0.35 }} />
+            ))}
+          </div>
+        )}
+        {(tab === "graph" ||
+          (tab === "activity" && !activityLoading && activity.length === 0) ||
+          (tab !== "activity" && expenses.length === 0 && (tab === "balances" || settlements.length === 0))) && (
           <div className="flex flex-col items-center py-6 text-center">
             <p aria-hidden className="font-display text-[88px] uppercase leading-[0.85] text-ink-faded">
               {current.empty[0]}
@@ -421,9 +489,10 @@ export function GroupScreen({
       <ExpenseEditor
         open={!!editor}
         onClose={() => setEditor(null)}
-        onSaved={(title, mode) => setToast({ id: `saved-${Date.now()}`, message: mode === "created" ? `Added “${title}”` : `Saved “${title}”` })}
+        onSaved={(title, mode) => show({ message: mode === "created" ? `Added “${title}”` : `Saved “${title}”` })}
         group={g}
         myMemberId={me.id}
+        myUserId={myUserId}
         expense={editor?.expense}
       />
       <ExpenseDetailSheet
@@ -454,7 +523,13 @@ export function GroupScreen({
         onDelete={removeSettlement}
       />
       <Confetti burst={confetti} colors={["var(--pink)", "var(--sky)", "var(--mint)", "var(--butter)", "var(--lilac)", "var(--peach)", "var(--coral)", pastelVar(g.color)]} />
-      <Toast toast={toast} onDismiss={dismissToast} />
+      <PresencePill
+        item={pill.shown}
+        onTap={(item) => {
+          item.onTap?.();
+          pill.dismiss();
+        }}
+      />
     </div>
   );
 }
