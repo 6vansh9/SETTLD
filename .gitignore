@@ -45,3 +45,6 @@ next-env.d.ts
 /*.webp
 /*.heic
 /*.HEIC
+
+# Local-only SQL that contains secrets (run in the Supabase SQL Editor, never commit)
+supabase/.secrets/

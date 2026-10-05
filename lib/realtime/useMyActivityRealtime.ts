@@ -1,12 +1,20 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { expenseKeys } from "@/lib/queries/expenses";
 import { groupKeys } from "@/lib/queries/groups";
 import { createClient } from "@/lib/supabase/client";
 
 const BATCH_MS = 150;
+export interface ActivityInsert {
+  id: string;
+  group_id: string;
+  actor_member: string | null;
+  kind: string;
+  payload: Record<string, unknown>;
+}
+
 /** postgres_changes `in` filters accept up to 100 values; beyond that RLS alone scopes the feed. */
 const MAX_IN_FILTER = 100;
 
@@ -14,8 +22,10 @@ const MAX_IN_FILTER = 100;
  * /groups and /activity: one subscription to activity rows across all my groups
  * (filter group_id=in.(…)). Any new activity refreshes group cards, Home balances and the feed.
  */
-export function useMyActivityRealtime(groupIds: string[], userId: string) {
+export function useMyActivityRealtime(groupIds: string[], userId: string, onInsert?: (row: ActivityInsert) => void) {
   const qc = useQueryClient();
+  const onInsertRef = useRef(onInsert);
+  onInsertRef.current = onInsert;
   const key = [...groupIds].sort().join(",");
 
   useEffect(() => {
@@ -45,7 +55,10 @@ export function useMyActivityRealtime(groupIds: string[], userId: string) {
           table: "activity",
           ...(ids.length <= MAX_IN_FILTER ? { filter: `group_id=in.(${ids.join(",")})` } : {}),
         },
-        refresh,
+        (payload: { new: unknown }) => {
+          refresh();
+          onInsertRef.current?.(payload.new as ActivityInsert);
+        },
       )
       // New group backgrounds and profile photos (RLS: only my groups / people I share one with).
       .on(

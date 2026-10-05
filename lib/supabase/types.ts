@@ -62,6 +62,7 @@ export interface Database {
           type: GroupType;
           simplify: boolean;
           cover_url: string | null;
+          nudge_mode: NudgeMode;
           created_by: string | null;
           archived_at: string | null;
           created_at: string;
@@ -81,6 +82,7 @@ export interface Database {
           role: MemberRole;
           joined_at: string;
           left_at: string | null;
+          notify_level: NotifyLevel;
         };
         Insert: never;
         Update: never;
@@ -305,6 +307,36 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      reactions: {
+        Row: { id: string; group_id: string; entity_type: SocialEntity; entity_id: string; member_id: string; emoji: ReactionEmoji | null; updated_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      comments: {
+        Row: { id: string; group_id: string; entity_type: SocialEntity; entity_id: string; member_id: string; body: string; client_id: string | null; created_at: string; deleted_at: string | null };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      entity_seen: {
+        Row: { member_id: string; group_id: string; entity_type: SocialEntity; entity_id: string; seen_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      nudges: {
+        Row: { id: string; group_id: string; from_member: string; to_member: string; level: number; amount: number; days: number; template: number; sent_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; user_agent: string | null; created_at: string; last_used_at: string | null };
+        Insert: never;
+        Update: { last_used_at?: string | null };
+        Relationships: [];
+      };
     };
     Views: {
       group_balances: {
@@ -409,6 +441,15 @@ export interface Database {
       finalize_room: { Args: { p_room_id: string; p_payer?: string | null; p_client_id?: string | null }; Returns: string };
       cancel_room: { Args: { p_room_id: string }; Returns: undefined };
       set_group_cover: { Args: { p_group_id: string; p_url: string | null }; Returns: undefined };
+      toggle_reaction: { Args: { p_entity_type: SocialEntity; p_entity_id: string; p_emoji: ReactionEmoji }; Returns: ReactionEmoji | null };
+      add_comment: { Args: { p_entity_type: SocialEntity; p_entity_id: string; p_body: string; p_client_id?: string | null }; Returns: string };
+      delete_comment: { Args: { p_comment_id: string }; Returns: undefined };
+      mark_seen: { Args: { p_entity_type: SocialEntity; p_entity_id: string }; Returns: undefined };
+      set_notify_level: { Args: { p_group_id: string; p_level: NotifyLevel }; Returns: undefined };
+      set_nudge_mode: { Args: { p_group_id: string; p_mode: NudgeMode }; Returns: undefined };
+      send_nudge: { Args: { p_to_member: string; p_amount: number; p_template: number }; Returns: Nudge };
+      save_push_subscription: { Args: { p_endpoint: string; p_p256dh: string; p_auth: string; p_user_agent?: string | null }; Returns: undefined };
+      delete_push_subscription: { Args: { p_endpoint: string }; Returns: undefined };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
@@ -416,6 +457,11 @@ export interface Database {
 }
 
 export type ChargeKind = "percent" | "amount";
+export type SocialEntity = "expense" | "settlement";
+export const REACTION_EMOJIS = ["💀", "😭", "🔥", "🙏", "🤡", "💸"] as const;
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+export type NotifyLevel = "all" | "money" | "off";
+export type NudgeMode = "on" | "polite" | "off";
 export type RoomStatus = "open" | "finalized" | "cancelled" | "expired";
 
 /** room_preview(): basics by code (ids only for members). */
@@ -453,3 +499,7 @@ export type Settlement = Database["public"]["Tables"]["settlements"]["Row"];
 export type SplitRoom = Database["public"]["Tables"]["split_rooms"]["Row"];
 export type SplitRoomItem = Database["public"]["Tables"]["split_room_items"]["Row"];
 export type SplitRoomClaim = Database["public"]["Tables"]["split_room_claims"]["Row"];
+export type Reaction = Database["public"]["Tables"]["reactions"]["Row"];
+export type Comment = Database["public"]["Tables"]["comments"]["Row"];
+export type EntitySeen = Database["public"]["Tables"]["entity_seen"]["Row"];
+export type Nudge = Database["public"]["Tables"]["nudges"]["Row"];

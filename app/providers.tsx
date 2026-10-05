@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "framer-motion";
 import { useState } from "react";
 import { CommandBarProvider } from "@/components/features/command-bar/CommandBarProvider";
+import { PushBridge } from "@/components/features/push/PushBridge";
 import { AuthSync } from "@/components/providers/AuthSync";
 import { PrivacyProvider } from "@/components/providers/PrivacyProvider";
 import { ProfileSync } from "@/components/providers/ProfileSync";
@@ -21,6 +22,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <PrivacyProvider>
           <AuthSync />
           <ProfileSync />
+          <PushBridge />
           {/* "user": Framer Motion drops transform animations when prefers-reduced-motion is set */}
           <MotionConfig reducedMotion="user">
             <ToastProvider>

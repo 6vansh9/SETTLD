@@ -71,6 +71,8 @@ export function useGroupRealtime(
       if (dirty.has("members")) void qc.invalidateQueries({ queryKey: groupKeys.detail(groupId) });
       if (dirty.has("activity")) void qc.invalidateQueries({ queryKey: ["group", groupId, "activity"] });
       if (dirty.has("rooms")) void qc.invalidateQueries({ queryKey: ["group", groupId, "rooms"] });
+      if (dirty.has("social")) void qc.invalidateQueries({ queryKey: ["group", groupId, "social"] });
+      if (dirty.has("nudges")) void qc.invalidateQueries({ queryKey: ["group", groupId, "nudges"] });
       // Any change can move money: always re-read the balances view (and Home's).
       void qc.invalidateQueries({ queryKey: expenseKeys.balances(groupId) });
       void qc.invalidateQueries({ queryKey: expenseKeys.allBalances });
@@ -85,7 +87,7 @@ export function useGroupRealtime(
       const now = Date.now();
       if (now - lastRefetch < FOCUS_REFETCH_MIN_MS) return;
       lastRefetch = now;
-      ["expenses", "settlements", "members", "activity", "rooms"].forEach(mark);
+      ["expenses", "settlements", "members", "activity", "rooms", "social", "nudges"].forEach(mark);
     };
 
     const handle = (table: string, what: string) => (payload: RealtimePostgresChangesPayload<Row>) => {
@@ -120,6 +122,9 @@ export function useGroupRealtime(
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity", filter }, handle("activity", "activity"))
         .on("postgres_changes", { event: "*", schema: "public", table: "split_rooms", filter }, handle("split_rooms", "rooms"))
         // Background photo / name changes, and members' new profile photos.
+        .on("postgres_changes", { event: "*", schema: "public", table: "reactions", filter }, handle("reactions", "social"))
+        .on("postgres_changes", { event: "*", schema: "public", table: "comments", filter }, handle("comments", "social"))
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "nudges", filter }, handle("nudges", "nudges"))
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "groups", filter: `id=eq.${groupId}` }, handle("groups", "members"))
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, handle("profiles", "members"));
       if (isPrivate) {

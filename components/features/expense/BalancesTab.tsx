@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { Amount, AnimatedAmount, Avatar } from "@/components/ui";
+import { NudgeButton } from "@/components/features/social/NudgeButton";
+import { Amount, AnimatedAmount, Avatar, EmptyState } from "@/components/ui";
 import { memberAvatar, type GroupWithMembers } from "@/lib/groups-data";
 import type { Transfer } from "@/lib/simplify";
 import type { GroupBalance } from "@/lib/supabase/types";
@@ -15,6 +16,7 @@ export function BalancesTab({
   planError,
   myUserId,
   onSettle,
+  onAddExpense,
 }: {
   group: GroupWithMembers;
   balances: GroupBalance[];
@@ -23,6 +25,7 @@ export function BalancesTab({
   planError: boolean;
   myUserId: string;
   onSettle: (t: Transfer) => void;
+  onAddExpense?: () => void;
 }) {
   const byId = new Map(group.members.map((m) => [m.id, m]));
   const label = (id: string) => {
@@ -85,9 +88,7 @@ export function BalancesTab({
         {planError ? (
           <p className="text-[14px] font-medium text-owe-ink">Balances don&apos;t add up. Reload the page and try again.</p>
         ) : transfers.length === 0 ? (
-          <p className="rounded-card border-[1.5px] border-dashed border-ink/15 px-4 py-6 text-center text-[15px] font-medium text-ink/60">
-            Nobody owes anybody. 🎉
-          </p>
+          <EmptyState lines={["All", "Square"]} hint="Nobody owes anybody. 🎉" cta={onAddExpense ? { label: "Add an expense", onClick: onAddExpense } : undefined} compact />
         ) : (
           <ul className="space-y-2">
             {transfers.map((t) => {
@@ -126,13 +127,16 @@ export function BalancesTab({
                           </button>
                         </>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => onSettle(t)}
-                          className="col-span-2 h-10 rounded-full border-[1.5px] border-ink/15 text-[13px] font-semibold text-ink"
-                        >
-                          Mark as received
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onSettle(t)}
+                            className="h-10 rounded-full border-[1.5px] border-ink/15 text-[13px] font-semibold text-ink"
+                          >
+                            Mark as received
+                          </button>
+                          <NudgeButton group={group} myMemberId={myId} toMemberId={t.from} amount={t.amount} />
+                        </>
                       )}
                     </div>
                   )}

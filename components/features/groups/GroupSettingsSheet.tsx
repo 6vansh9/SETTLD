@@ -6,26 +6,143 @@ import { useState } from "react";
 import { Button, Sheet, Switch } from "@/components/ui";
 import { GroupCoverControls } from "./GroupCoverControls";
 import { friendlyError, validateName } from "@/lib/groups";
-import type { GroupWithMembers } from "@/lib/groups-data";
+import type { GroupWithMembers, MemberWithProfile } from "@/lib/groups-data";
+import { cn } from "@/lib/cn";
+import { useSetNotifyLevel, useSetNudgeMode } from "@/lib/queries/social";
+import type { NotifyLevel, NudgeMode } from "@/lib/supabase/types";
 import type { Pastel } from "@/lib/pastels";
 import { useSetSimplify } from "@/lib/queries/expenses";
 import { useSetArchived, useUpdateGroup } from "@/lib/queries/groups";
 import { EmojiPicker, GroupNameField, GroupPreview, PastelPicker } from "./GroupFields";
 
-/** Admin: rename, emoji, color, archive / unarchive. */
+/** Everyone: my notifications for this group. Admins also: background, rename, emoji, color, nudges, simplify, archive. */
 export function GroupSettingsSheet({
   open,
   onClose,
   group,
+  myMember,
+  isAdmin,
 }: {
   open: boolean;
   onClose: () => void;
   group: GroupWithMembers;
+  myMember: MemberWithProfile;
+  isAdmin: boolean;
 }) {
   return (
     <Sheet open={open} onClose={onClose} title="Group settings">
-      <SettingsBody group={group} onDone={onClose} />
+      {/* Everyone: my notifications for this group. Admins: the group's own settings. */}
+      <NotifySetting group={group} myMember={myMember} />
+      {isAdmin && (
+        <div className="mt-6 border-t-[1.5px] border-ink/[0.06] pt-6">
+          <SettingsBody group={group} onDone={onClose} />
+        </div>
+      )}
     </Sheet>
+  );
+}
+
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="mt-3 grid rounded-full bg-ink/5 p-1" style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          disabled={disabled}
+          onClick={() => onChange(o.value)}
+          className={cn("h-10 rounded-full px-2 text-[13px] font-semibold", value === o.value ? "bg-surface text-ink shadow-sm" : "text-ink/55")}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const NOTIFY_HINT: Record<NotifyLevel, string> = {
+  all: "Expenses, payments, comments and nudges.",
+  money: "Only expenses you're in, payments and nudges. No comments.",
+  off: "Nothing from this group.",
+};
+
+function NotifySetting({ group, myMember }: { group: GroupWithMembers; myMember: MemberWithProfile }) {
+  const set = useSetNotifyLevel(group.id);
+  const [level, setLevel] = useState<NotifyLevel>(myMember.notify_level ?? "all");
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div>
+      <p className="text-[15px] font-semibold">Notifications from this group</p>
+      <Segmented
+        label="Notifications from this group"
+        value={level}
+        options={[
+          { value: "all", label: "All" },
+          { value: "money", label: "Only money stuff" },
+          { value: "off", label: "Off" },
+        ]}
+        onChange={(v) => {
+          const prev = level;
+          setLevel(v);
+          setError(null);
+          set.mutate(v, { onError: (e) => (setLevel(prev), setError(friendlyError(e))) });
+        }}
+      />
+      <p className="mt-2 text-[13px] font-medium text-ink/50">{NOTIFY_HINT[level]} Turn notifications on for this phone in your profile.</p>
+      {error && (
+        <p role="alert" className="mt-2 text-[13px] font-medium text-owe-ink">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function NudgeSetting({ group }: { group: GroupWithMembers }) {
+  const set = useSetNudgeMode(group.id);
+  const [mode, setMode] = useState<NudgeMode>(group.nudge_mode ?? "on");
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="border-t-[1.5px] border-ink/[0.06] pt-5">
+      <p className="text-[15px] font-semibold">Nudges</p>
+      <p className="mt-0.5 text-[13px] font-medium text-ink/50">
+        {mode === "on" ? "Polite, then cheeky, then dramatic." : mode === "polite" ? "Always the polite version." : "Nobody can nudge in this group."}
+      </p>
+      <Segmented
+        label="Nudges"
+        value={mode}
+        options={[
+          { value: "on", label: "On" },
+          { value: "polite", label: "Polite only" },
+          { value: "off", label: "Off" },
+        ]}
+        onChange={(v) => {
+          const prev = mode;
+          setMode(v);
+          setError(null);
+          set.mutate(v, { onError: (e) => (setMode(prev), setError(friendlyError(e))) });
+        }}
+      />
+      {error && (
+        <p role="alert" className="mt-2 text-[13px] font-medium text-owe-ink">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -87,6 +204,8 @@ function SettingsBody({ group, onDone }: { group: GroupWithMembers; onDone: () =
         </form>
         </>
       )}
+
+      {!archived && <NudgeSetting group={group} />}
 
       {!archived && (
         <div className="flex items-center justify-between gap-4 border-t-[1.5px] border-ink/[0.06] pt-5">

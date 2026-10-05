@@ -90,6 +90,23 @@ export function describeActivity(row: ActivityRow, myUserId: string, myDisplayNa
       const expenseId = str(p.expense_id);
       return { text: `${who} finalized ${str(p.name) ?? "a Split Room"}`, amount: roomAmount, target: expenseId ? { type: "expense", id: expenseId } : null };
     }
+    case "comment_added": {
+      const type = str(p.entity_type);
+      const id = str(p.entity_id);
+      const on = str(p.title) ?? (type === "settlement" ? "a payment" : "an expense");
+      const body = str(p.body);
+      return {
+        text: `${who} commented on ${on}${body ? `: “${body.length > 60 ? `${body.slice(0, 59)}…` : body}”` : ""}`,
+        amount: null,
+        target: (type === "expense" || type === "settlement") && id ? { type, id } : null,
+      };
+    }
+    case "nudge_sent": {
+      const base = str(p.base_currency);
+      const nudgeAmount = base && isCurrencyCode(base) && amountValue !== null && Number.isFinite(amountValue) ? { value: amountValue, currency: base } : null;
+      const target = person(p.to_name);
+      return { text: `${who} nudged ${target === "You" ? "you" : target}`, amount: nudgeAmount, target: null };
+    }
     case "room_cancelled":
       return { text: `${who} closed ${str(p.name) ?? "a Split Room"}`, amount: null, target: null };
     default:
@@ -99,5 +116,5 @@ export function describeActivity(row: ActivityRow, myUserId: string, myDisplayNa
 
 /** Pill wording for a live event: same sentence, with "just" for immediacy where it reads well. */
 export function pillText(line: ActivityLine): string {
-  return line.text.replace(/^(\S+) (added|paid|settled|joined|edited|deleted|confirmed|disputed|opened|finalized)\b/, "$1 just $2");
+  return line.text.replace(/^(\S+) (added|paid|settled|joined|edited|deleted|confirmed|disputed|opened|finalized|commented|nudged)\b/, "$1 just $2");
 }

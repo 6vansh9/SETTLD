@@ -12,6 +12,7 @@ import { signOutAndReset } from "@/lib/session-reset";
 import type { Profile } from "@/lib/supabase/types";
 import { isValidUpiId, normalizeUpiId } from "@/lib/upi";
 import { BottomTabBar } from "@/components/features/nav/BottomTabBar";
+import { NotificationsCard } from "@/components/features/push/NotificationsCard";
 import { ProfilePhotoControls } from "@/components/features/photos/ProfilePhoto";
 import { ColorPicker } from "./ColorPicker";
 import { CurrencyPicker } from "./CurrencyPicker";
@@ -102,6 +103,12 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
           />
         </div>
       </Group>
+
+      <div id="notifications" className="scroll-mt-6">
+        <Group label="Notifications">
+          <NotificationsCard />
+        </Group>
+      </div>
 
       <Group label="Look">
         <div className="flex items-center justify-between gap-4 px-4 py-3">

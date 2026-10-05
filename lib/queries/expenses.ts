@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
+import { usePushPrompt } from "@/components/features/push/usePushPrompt";
 import { useToast } from "@/components/providers/ToastProvider";
 import type { ExpenseRpcArgs } from "@/lib/expense-form";
 import { fetchAllBalances, fetchBalances, fetchExpense, fetchExpenses, type ExpenseWithLines } from "@/lib/expenses-data";
@@ -90,6 +91,7 @@ export interface CreateVars {
 export function useCreateExpense(defaultGroupId: string, myUserId: string) {
   const qc = useQueryClient();
   const fail = useFailureToast();
+  const offerPush = usePushPrompt();
   const self = useRef<(v: CreateVars) => void>(() => {});
   const m = useMutation({
     mutationFn: async ({ args, clientId, groupId: g }: CreateVars) => {
@@ -146,6 +148,7 @@ export function useCreateExpense(defaultGroupId: string, myUserId: string) {
     onSuccess: (row, { clientId, groupId: g }) => {
       const groupId = g ?? defaultGroupId;
       qc.setQueryData<ExpenseWithLines[]>(expenseKeys.list(groupId), (list) => replaceTemp(list, tempId(clientId), row));
+      offerPush();
     },
     onError: (err, vars, snap) => {
       rollback(qc, vars.groupId ?? defaultGroupId, snap);

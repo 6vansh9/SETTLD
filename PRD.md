@@ -274,12 +274,21 @@ Poster-style card: payer → receiver in Anton, amount in Jersey 10, group name 
 
 - Six fixed reactions on any expense or settlement: 💀 😭 🔥 🙏 🤡 💸. One per person per item, tap again to remove.
 - Comment thread on the expense detail sheet, plain text, 280 characters, live.
-- New comments and reactions show as a dot on the expense card.
+- New comments and reactions show as a dot on the expense card (and payment card) until you open it.
+- Reactions and comment threads are on settlements too. Only the author can delete a comment. Each comment logs activity.
+
+### Notifications
+
+- Push for: an expense involving me, someone paid me, my payment confirmed/disputed, a comment on something I'm in, nudges. Never my own actions.
+- Permission is only requested from a tap: "Turn on notifications" on /me, or the one-time offer after my first expense. In iPhone Safari (not from the Home Screen) /me shows Add to Home Screen steps instead.
+- Per group, per person (group settings, visible to every member): All / Only money stuff / Off. Dead subscriptions (404/410) are removed.
+- A minimal push-only service worker (`/sw.js`) and a web app manifest (standalone) ship now; offline caching is Milestone 9.
 
 ### Escalating nudges
 
 - Nudge button on any balance row where someone owes you. Sends a push notification and an in-app banner.
 - Tone escalates with each nudge within 14 days: level 1 polite, level 2 cheeky, level 3 dramatic. Example level 3: "Aman. It's been 9 days. The ₹340 misses you."
+- Also on the Debt Graph mini card. Ghosts can't be nudged. Days = how long the oldest unpaid shared expense has been owed (since their last payment to you).
 - One nudge per person per 24 hours. Group setting: Nudges On / Polite only / Off.
 - About 10 templates per level, picked at random, with name, amount, and days filled in.
 
@@ -368,7 +377,7 @@ Your phone ◄──── Presence channel (typing, Split Room taps; no DB writ
 | Graph layout | d3-force |
 | OG / receipt images | `@vercel/og` |
 | QR | `qrcode` (generate), `@zxing/browser` or native camera link (scan) |
-| Push | Web Push with VAPID keys, sent from a Supabase Edge Function |
+| Push | Web Push with VAPID keys (`web-push`), sent from a Next.js route handler (`/api/push/webhook`) that a database trigger on activity inserts calls through `pg_net` with a shared secret |
 | FX rates | Frankfurter API (free, no key) |
 | PWA | `@serwist/next` for service worker, manifest, offline cache |
 | Offline queue | IndexedDB via `idb-keyval`, replayed on reconnect |
@@ -391,7 +400,7 @@ lib/
   parser.ts (command bar grammar)
   fx.ts, upi.ts, supabase/
 supabase/
-  migrations/, functions/ (send-push, nudge)
+  migrations/ (push is sent from app/api/push/webhook)
 ```
 
 ### PWA and iOS constraints

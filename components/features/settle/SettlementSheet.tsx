@@ -1,5 +1,6 @@
 "use client";
 
+import { CommentThread, ReactionsRow, useMarkOpenSeen } from "@/components/features/social/GroupSocial";
 import { ArrowRight, Lock, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { AmountOverlay } from "@/components/features/expense/AmountOverlay";
@@ -97,6 +98,8 @@ export function SettlementSheet({
               </div>
             )}
 
+            <ReactionsRow type="settlement" id={s.id} />
+
             {perms.canEdit && (
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button variant="secondary" onClick={() => onDelete(s)} disabled={busy}>
@@ -109,6 +112,9 @@ export function SettlementSheet({
                 </Button>
               </div>
             )}
+
+            <CommentThread type="settlement" id={s.id} />
+            <SeenMarker id={s.id} />
           </div>
         )}
       </Sheet>
@@ -127,4 +133,10 @@ export function SettlementSheet({
       )}
     </>
   );
+}
+
+/** Clears the settlement's "new" dot while its sheet is open. */
+function SeenMarker({ id }: { id: string }) {
+  useMarkOpenSeen("settlement", id.startsWith("temp-") ? null : id);
+  return null;
 }

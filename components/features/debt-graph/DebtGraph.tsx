@@ -1,5 +1,6 @@
 "use client";
 
+import { NudgeButton } from "@/components/features/social/NudgeButton";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BellRing, HandCoins } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -290,10 +291,17 @@ export function DebtGraph({
             <HandCoins className="size-4" />
             Settle
           </Button>
-          <Button variant="ghost" className="h-10 px-3 text-[13px]" disabled title="Nudges arrive in the next update">
-            <BellRing className="size-4" />
-            Nudge
-          </Button>
+          {withMe && withMe.from === sel.id && withMe.to === myMemberId ? (
+            <NudgeButton group={group} myMemberId={myMemberId} toMemberId={sel.id} amount={withMe.amount} />
+          ) : (
+            sel.id !== myMemberId &&
+            sel.id !== OTHERS_ID && (
+              <Button variant="ghost" className="h-10 px-3 text-[13px]" disabled title="They don't owe you anything">
+                <BellRing className="size-4" />
+                Nudge
+              </Button>
+            )
+          )}
         </motion.div>
       )}
     </div>

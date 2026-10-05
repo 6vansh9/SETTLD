@@ -15,9 +15,11 @@ import { ExpenseDetailSheet } from "@/components/features/expense/ExpenseDetailS
 import { ExpenseEditor } from "@/components/features/expense/ExpenseEditor";
 import { ExpenseList } from "@/components/features/expense/ExpenseList";
 import { SettleSheet } from "@/components/features/settle/SettleSheet";
+import { GroupSocialProvider } from "@/components/features/social/GroupSocial";
+import { useNudgeBanner } from "@/components/features/social/useNudgeBanner";
 import { NewRoomButton, RoomBanner } from "@/components/features/split-room/RoomEntry";
 import { SettlementSheet } from "@/components/features/settle/SettlementSheet";
-import { AnimatedAmount, Avatar, Button, Confetti, PresencePill, SplitBar } from "@/components/ui";
+import { AnimatedAmount, Avatar, Button, Confetti, EmptyState, PresencePill, PrivacyToggle, SplitBar } from "@/components/ui";
 import { describeActivity, pillText, type ActivityRow, type ActivityTarget } from "@/lib/activity";
 import { cn } from "@/lib/cn";
 import type { ExpenseWithLines } from "@/lib/expenses-data";
@@ -50,10 +52,10 @@ import { MembersSheet } from "./MembersSheet";
 const UNDO_MS = 10_000;
 
 const TABS = [
-  { id: "expenses", label: "Expenses", empty: ["NO", "EXPENSES"], hint: "Add the first one: dinner, cab, rent, anything." },
-  { id: "balances", label: "Balances", empty: ["ALL", "SQUARE"], hint: "Who owes whom shows up here once there are expenses." },
-  { id: "graph", label: "Graph", empty: ["NO", "DEBTS"], hint: "Add an expense to see who owes whom, drawn live." },
-  { id: "activity", label: "Activity", empty: ["QUIET", "HERE"], hint: "Every change in the group will show up here." },
+  { id: "expenses", label: "Expenses", empty: ["NO", "EXPENSES"] as [string, string], hint: "Add the first one: dinner, cab, rent, anything." },
+  { id: "balances", label: "Balances", empty: ["ALL", "SQUARE"] as [string, string], hint: "Who owes whom shows up here once there are expenses." },
+  { id: "graph", label: "Graph", empty: ["NO", "DEBTS"] as [string, string], hint: "Add an expense to see who owes whom, drawn live." },
+  { id: "activity", label: "Activity", empty: ["QUIET", "HERE"] as [string, string], hint: "Every change in the group will show up here." },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -124,6 +126,7 @@ export function GroupScreen({
   useEffect(() => {
     const open = params.get("open");
     if (params.get("tab") === "activity") setTab("activity");
+    if (params.get("settle") === "1") setSettle({ prefill: null });
     if (!open) return;
     const [type, id] = open.split(":");
     if (type === "members") openTarget({ type: "members" });
@@ -137,8 +140,12 @@ export function GroupScreen({
   const membersRef = useRef(g.members);
   membersRef.current = g.members;
   const pushRef = useRef<(item: import("@/components/ui").PillItem) => void>(() => {});
+  const groupRef = useRef(g);
+  groupRef.current = g;
+  const nudgeBanner = useNudgeBanner(myUserId, () => setSettle({ prefill: null }));
   const onActivity = useCallback(
     (a: ActivityRow) => {
+      nudgeBanner(a, groupRef.current);
       const actor = membersRef.current.find((m) => m.id === a.actor_member);
       const myName = membersRef.current.find((m) => m.user_id === myUserId)?.display_name;
       const line = describeActivity({ ...a, actor: actor ? { display_name: actor.display_name, user_id: actor.user_id } : null }, myUserId, myName);
@@ -150,7 +157,7 @@ export function GroupScreen({
         onTap: () => openTarget(line.target),
       });
     },
-    [myUserId, openTarget],
+    [myUserId, openTarget, nudgeBanner],
   );
   const { status, presence, setScreen } = useGroupRealtime(initialGroup.id, me?.id ?? "", onActivity);
   const presenceWho = me ? presence.find((x) => x.member_id !== me.id && x.typing && x.screen !== "group") : undefined;
@@ -159,6 +166,19 @@ export function GroupScreen({
   pushRef.current = pill.push;
   const screen = editor ? "add-expense" : settle ? "settle" : "group";
   useEffect(() => setScreen(screen), [screen, setScreen]);
+
+  // Confetti when a balance reaches zero (PRD): anyone's net going from non-zero to exactly zero,
+  // whatever caused it (a payment here, an edit, a live update). One burst per change, and the
+  // settle sheet no longer fires its own, so it can't double up.
+  const prevNets = useRef<Map<string, number> | null>(null);
+  useEffect(() => {
+    const nets = new Map(balances.map((b) => [b.member_id, b.net]));
+    const prev = prevNets.current;
+    prevNets.current = nets;
+    if (!prev) return; // first render: nothing "reached" zero
+    const hit = [...nets].some(([id, net]) => net === 0 && (prev.get(id) ?? 0) !== 0);
+    if (hit) setConfetti((n) => n + 1);
+  }, [balances]);
 
   // Who pays whom: simplified from the balances view, or raw debts net of (undisputed) payments.
   let plan: Transfer[] = [];
@@ -233,6 +253,7 @@ export function GroupScreen({
   const labelFade = cover ? "opacity-[0.85]" : "opacity-60";
 
   return (
+    <GroupSocialProvider group={g} myMemberId={me.id}>
     <div className="mx-auto min-h-dvh w-full max-w-app pb-[calc(190px+env(safe-area-inset-bottom))]">
       {/* Pastel header */}
       <header
@@ -256,7 +277,8 @@ export function GroupScreen({
           >
             <ArrowLeft className="size-5" strokeWidth={2.25} />
           </Link>
-          {isAdmin && (
+          <span className="flex items-center gap-2">
+            <PrivacyToggle className={cn(cover ? "bg-black/35 text-white backdrop-blur-md" : "")} />
             <button
               type="button"
               onClick={() => setSheet("settings")}
@@ -268,7 +290,7 @@ export function GroupScreen({
             >
               <Settings2 className="size-5" strokeWidth={2.25} />
             </button>
-          )}
+          </span>
         </div>
 
         <div className={cn("text-[56px] leading-none", cover ? "mt-16 drop-shadow-[0_2px_6px_rgb(0_0_0/0.35)]" : "mt-4")} aria-hidden>
@@ -455,6 +477,7 @@ export function GroupScreen({
             planError={planError}
             myUserId={myUserId}
             onSettle={(t) => setSettle({ prefill: t })}
+            onAddExpense={archived ? undefined : () => setEditor({ expense: null })}
           />
         )}
         {tab === "graph" && expenses.length > 0 && (
@@ -480,20 +503,12 @@ export function GroupScreen({
         {((tab === "graph" && expenses.length === 0) ||
           (tab === "activity" && !activityLoading && activity.length === 0) ||
           (tab !== "activity" && expenses.length === 0 && (tab === "balances" || settlements.length === 0))) && (
-          <div className="flex flex-col items-center py-6 text-center">
-            <p aria-hidden className="font-display text-[88px] uppercase leading-[0.85] text-ink-faded">
-              {current.empty[0]}
-              <br />
-              {current.empty[1]}
-            </p>
-            <p className="mt-5 max-w-[260px] text-[14px] font-medium text-ink/60">{current.hint}</p>
-            {tab === "expenses" && !archived && (
-              <Button className="mt-6" onClick={() => setEditor({ expense: null })}>
-                <Plus className="size-5" strokeWidth={2.5} />
-                Add expense
-              </Button>
-            )}
-          </div>
+          <EmptyState
+            compact
+            lines={current.empty}
+            hint={current.hint}
+            cta={archived ? undefined : { label: "Add expense", onClick: () => setEditor({ expense: null }), icon: <Plus className="size-5" strokeWidth={2.5} /> }}
+          />
         )}
       </motion.section>
 
@@ -534,7 +549,7 @@ export function GroupScreen({
         myUserId={myUserId}
         isAdmin={isAdmin}
       />
-      {isAdmin && <GroupSettingsSheet open={sheet === "settings"} onClose={() => setSheet(null)} group={g} />}
+      <GroupSettingsSheet open={sheet === "settings"} onClose={() => setSheet(null)} group={g} myMember={me} isAdmin={isAdmin} />
 
       <ExpenseEditor
         open={!!editor}
@@ -563,7 +578,6 @@ export function GroupScreen({
         me={me}
         plan={plan}
         prefill={settle?.prefill ?? null}
-        onSettledUp={() => setConfetti((n) => n + 1)}
       />
       <SettlementSheet
         settlement={openSettlement}
@@ -581,6 +595,7 @@ export function GroupScreen({
         }}
       />
     </div>
+    </GroupSocialProvider>
   );
 }
 

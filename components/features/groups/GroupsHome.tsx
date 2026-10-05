@@ -1,10 +1,12 @@
 "use client";
 
+import { useNudgeBanner } from "@/components/features/social/useNudgeBanner";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Activity, ChevronDown, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Amount, AnimatedAmount, Avatar, Button, CardStack, PrivacyToggle, Title } from "@/components/ui";
+import { Amount, AnimatedAmount, Avatar, Button, CardStack, EmptyState, PrivacyToggle, Title } from "@/components/ui";
 import { myNetInGroup, oweOwedTotals } from "@/lib/balances";
 import { partitionGroups } from "@/lib/groups";
 import { formatAmount } from "@/lib/money";
@@ -39,9 +41,12 @@ export function GroupsHome({
   const [showArchived, setShowArchived] = useState(false);
   const reduce = useReducedMotion();
   // Live: any activity in any of my groups refreshes cards and the overall total.
+  const router = useRouter();
+  const nudgeBanner = useNudgeBanner(me.id, (gid) => router.push(`/g/${gid}?settle=1`));
   useMyActivityRealtime(
     groups.map((g) => g.id),
     me.id,
+    (row) => nudgeBanner(row, groups.find((g) => g.id === row.group_id)),
   );
   const { active, archived } = partitionGroups(groups);
   const totals = oweOwedTotals(groups, balances, me.id, me.default_currency, rates);
@@ -71,21 +76,13 @@ export function GroupsHome({
       </div>
 
       {groups.length === 0 ? (
-        // Empty state: one huge faded word, one CTA (PRD › Screens)
-        <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
-          <p aria-hidden className="font-display text-[120px] uppercase leading-[0.85] text-ink-faded">
-            Nothing
-            <br />
-            yet
-          </p>
-          <p className="mt-6 max-w-[260px] text-[15px] font-medium text-ink/60">
-            Start a group for a trip, your flat or the dinner crew.
-          </p>
-          <Button className="mt-6" onClick={() => setCreating(true)}>
-            <Plus className="size-5" strokeWidth={2.5} />
-            New group
-          </Button>
-        </div>
+        // Empty state: one huge faded word pair, one CTA (PRD › Screens)
+        <EmptyState
+          className="flex-1 justify-center"
+          lines={["Nothing", "yet"]}
+          hint="Start a group for a trip, your flat or the dinner crew."
+          cta={{ label: "New group", onClick: () => setCreating(true), icon: <Plus className="size-5" strokeWidth={2.5} /> }}
+        />
       ) : (
         <>
           {/* What I owe and what I'm owed, side by side (each group converted separately). */}

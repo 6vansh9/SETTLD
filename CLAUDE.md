@@ -306,3 +306,62 @@
 - **Settings preview and invite OG:** same look. The OG has a clear top with a text shadow on the wordmark and label, a scrim from 190 to 270 px down, and a 6 px pastel frame.
 - **Verified at 390px** with the live NIGHTOUT and goa photos, a bright beach scene and pure white, in light and dark: the title sits fully on the scrim on every card and header, clear photo covers 40–46% of the visible card and 132 px of the header, text is white on covers and dark without.
 - **Known limit:** the white date and wordmark at the top rely on a shadow only, so they're faint on a near-white photo (not provably AA).
+
+### Milestone 8 — Personality ✅ (2026-10-05)
+
+**Decisions (user-approved in the brief):** push is sent from a Next.js route with `web-push` (not an Edge Function; PRD updated). Permission is requested only from a tap. On iPhone Safari outside the Home Screen we explain Add to Home Screen instead.
+
+**Choices made here (PRD silent):**
+- The Supabase "Database Webhook" is a trigger on `activity` that posts through `pg_net`, which is what dashboard webhooks use. The URL and secret live in `private.app_settings`, filled in from the git-ignored `supabase/.secrets/push-webhook.sql`, so the secret never enters git.
+- The group settings gear is now shown to every member: everyone gets "Notifications from this group", and only admins see the rest.
+- Nudge "days" = time since the oldest live expense I paid that they share, after their last payment to me.
+- The first-expense offer is a toast with a "Turn on" button, shown once per device (localStorage `settld-push-asked`).
+- A minimal manifest and generated icons (`/pwa-icon/[size]`, Anton "S" on coral) were added, because iPhone push needs a standalone Home Screen app. Offline caching is still M9.
+- The VAPID subject is the site URL, not an email.
+
+- **SQL, `0009_personality.sql`** (idempotent):
+  - **Tables:**
+    - `reactions`: one row per member per item; `emoji` null = removed, never hard-deleted (realtime-filterable).
+    - `comments`: ≤ 280 characters, `client_id` for idempotent retries, soft delete by the author only.
+    - `entity_seen`, `nudges`, `push_subscriptions`.
+    - New columns: `group_members.notify_level` (all/money/off) and `groups.nudge_mode` (on/polite/off).
+  - **RLS:** select-only for members (seen marks and push subscriptions: your own).
+  - **RPCs:** toggle_reaction, add_comment (logs `comment_added`), delete_comment, mark_seen, set_notify_level, set_nudge_mode (admins), save/delete_push_subscription (an endpoint moves to whoever signs in on it).
+  - **`send_nudge`:**
+    - Refuses: ghosts, people who don't owe me, amounts above min(their debt, my credit), and groups with nudges off.
+    - Limits: an advisory lock plus a 24 h check per pair; the error carries the UTC time of the next allowed nudge.
+    - Level: 1 + nudges in the last 14 days, capped at 3; always 1 when the group is "polite only".
+    - Logs `nudge_sent`, with the template index so the push and the banner say the same thing.
+  - **Push trigger:** `notify_push_on_activity` only fires for the six push kinds and swallows network errors, so a push never rolls back a money write.
+  - **Realtime:** reactions, comments and nudges added to the publication.
+  - **PGlite:** 42 checks, including a `net.http_post` stub (payload, secret header, failures not blocking).
+- **Logic (tested):**
+  - `lib/nudges.ts`: 10 templates × 3 levels (the PRD example is level 3 #0), `nudgeText`, 24 h `nextNudgeAt`, `untilText`.
+  - `lib/push-messages.ts`: recipients and text per kind; never the actor or anyone signed in as them; no ghosts or people who left; respects `notify_level`.
+  - `lib/social.ts`: reaction summary, comment order, the unseen dot, optimistic helpers.
+  - `lib/activity.ts`: "Aman commented on Dinner: “…”", "Aman nudged you".
+- **Push:**
+  - **Keys:** VAPID keys and `PUSH_WEBHOOK_SECRET` live in `.env.local` and on Vercel (the private key and secret as Sensitive in prod/preview). Never printed; `.env.local.example` documents the names.
+  - **Server:** `app/api/push/webhook` (constant-time secret check, service-role reads, `web-push`, deletes 404/410 subscriptions, updates last_used_at); `app/api/push/test` ("Send a test" on /me).
+  - **Service worker:** `public/sw.js` handles push and notificationclick only (it posts the URL to an open window, else opens one).
+  - **Client:** `lib/push-client.ts`; `PushBridge` in providers registers the worker, re-saves an existing subscription and navigates on taps. `NotificationsCard` on /me (`#notifications`). `usePushPrompt` is called from `useCreateExpense` onSuccess.
+- **UI:**
+  - **Reactions and comments:** `components/features/social/GroupSocial.tsx` (context provider in GroupScreen): ReactionsRow, CommentThread (newest at the bottom, author avatar or photo, 280 counter, own-delete), NewDot on expense and payment cards, `useMarkOpenSeen` in both detail sheets.
+  - **Nudges:** `NudgeButton` on Balances "they pay you" rows and the Debt Graph card, showing "Again in 19 h" during the cooldown; `useNudgeBanner` shows a toast with "Settle up" on the group screen and Home. `?settle=1` opens the settle sheet (nudge pushes link there).
+  - **Settings:** group settings have segmented Notifications for everyone and Nudges On / Polite only / Off for admins.
+  - **Privacy:** the eye is now in the `/g/[id]` header too. `ProfileSync` re-applies "blur on open" when the app returns after 10+ minutes in the background.
+  - **Polish:**
+    - `ui/EmptyState`: no groups, no expenses / ALL SQUARE / NO DEBTS / QUIET HERE (each with one CTA), activity ("QUIET SO FAR" → groups), comments ("NO COMMENTS" → Say something).
+    - `ui/Skeleton`: `loading.tsx` for /groups, /activity, /me, /g/[id] and /room/[code] (pastel cards, no spinners).
+    - Confetti now comes from GroupScreen when any member's net goes from non-zero to zero (once per change); the settle sheet no longer fires its own.
+- **Verified:** headless at 390px against a mocked backend (19 checks):
+  - dot → open → mark_seen → dot cleared
+  - optimistic 💀 with the RPC payload
+  - optimistic comment with a client_id
+  - Nudge only on Aman's row (not the ghost), the RPC payload, the level-1 toast, "Again in 24 h"
+  - settings segments and the RPC
+  - eye blur and tap-to-peek
+  - empty state with CTA
+  - desktop "Turn on notifications" vs iPhone Safari Add to Home Screen steps
+- **Webhook:** 401 without or with a wrong secret; the manifest, worker and icons serve. Tests: 354 passing.
+- **Not verified here:** real pushes to devices, and the webhook end to end (needs 0009 and the secrets SQL run in Supabase).

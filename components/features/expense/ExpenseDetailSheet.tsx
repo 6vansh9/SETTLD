@@ -1,5 +1,6 @@
 "use client";
 
+import { CommentThread, ReactionsRow, useMarkOpenSeen } from "@/components/features/social/GroupSocial";
 import { Lock, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Amount, Avatar, Button, Sheet, SplitBar } from "@/components/ui";
@@ -66,6 +67,7 @@ function Detail({
   onDelete: (e: ExpenseWithLines) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  useMarkOpenSeen("expense", e.id.startsWith("temp-") ? null : e.id);
   const byId = new Map(group.members.map((m) => [m.id, m]));
   const name = (id: string) => {
     const m = byId.get(id);
@@ -152,6 +154,8 @@ function Detail({
         </section>
       )}
 
+      <ReactionsRow type="expense" id={e.id} />
+
       {reason && (
         <p className="mt-6 flex items-start gap-2 rounded-2xl bg-ink/5 px-4 py-3 text-[13px] font-medium text-ink/70">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -188,6 +192,8 @@ function Detail({
             </Button>
           </div>
         ))}
+
+      <CommentThread type="expense" id={e.id} />
     </div>
   );
 }

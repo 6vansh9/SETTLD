@@ -1,5 +1,6 @@
 "use client";
 
+import { NewDot } from "@/components/features/social/GroupSocial";
 import { SettlementCard } from "@/components/features/settle/SettlementCard";
 import { Amount } from "@/components/ui";
 import { myPositionOnExpense } from "@/lib/balances";
@@ -119,7 +120,10 @@ function ExpenseRow({
         <Icon className="size-5" strokeWidth={2.25} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-semibold">{e.title}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="block truncate text-[15px] font-semibold">{e.title}</span>
+          <NewDot type="expense" id={e.id} />
+        </span>
         <span className="mt-1 flex items-baseline gap-1 text-[12px] font-medium text-ink/60">
           {payer} paid <Amount amount={e.amount} currency={e.currency} size="sm" className="text-[15px] text-ink/70" />
           {e.currency !== group.base_currency && (

@@ -46,7 +46,8 @@ export function SettleSheet({
   /** Opened from a Balances row: skip the picker. */
   prefill: Transfer | null;
   /** Fired when a payment clears the whole planned debt (confetti). */
-  onSettledUp: () => void;
+  /** Optional extra hook when a payment clears a debt (confetti now comes from GroupScreen). */
+  onSettledUp?: () => void;
   /** Presence: true while this sheet is open (others see "… is settling up"). */
   onTypingChange?: (typing: boolean) => void;
 }) {
@@ -93,7 +94,7 @@ export function SettleSheet({
         const row = await record.mutateAsync({ ...p, method, clientId: clientId.current, silent: true });
         setRecorded({ p, method, byReceiver: p.to === me.id, id: row?.id ?? null });
         setStep("done");
-        if (clearsDebt(planAtOpen.current, p.from, p.to, p.amount)) onSettledUp();
+        if (clearsDebt(planAtOpen.current, p.from, p.to, p.amount)) onSettledUp?.();
       } catch (err) {
         setError(friendlyError(err));
         setStep("details");

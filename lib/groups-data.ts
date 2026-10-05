@@ -11,7 +11,7 @@ export type MemberWithProfile = GroupMember & {
 export type GroupWithMembers = Group & { members: MemberWithProfile[] };
 
 const GROUP_SELECT =
-  "*, members:group_members(id, group_id, user_id, display_name, is_ghost, role, joined_at, left_at, profile:profiles(avatar_color, upi_id, avatar_url))";
+  "*, members:group_members(id, group_id, user_id, display_name, is_ghost, role, joined_at, left_at, notify_level, profile:profiles(avatar_color, upi_id, avatar_url))";
 
 function sortMembers(group: GroupWithMembers): GroupWithMembers {
   // Real members first in join order, ghosts after.

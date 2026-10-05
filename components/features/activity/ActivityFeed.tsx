@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -39,14 +40,11 @@ export function ActivityFeed({
       </div>
       <div className="mt-8">
         {rows.length === 0 ? (
-          <div className="flex flex-col items-center py-12 text-center">
-            <p aria-hidden className="font-display text-[96px] uppercase leading-[0.85] text-ink-faded">
-              Quiet
-              <br />
-              so far
-            </p>
-            <p className="mt-5 max-w-[260px] text-[14px] font-medium text-ink/60">Expenses, payments and new members from all your groups show up here.</p>
-          </div>
+          <EmptyState
+            lines={["Quiet", "so far"]}
+            hint="Expenses, payments and new members from all your groups show up here."
+            cta={{ label: "Go to my groups", href: "/groups" }}
+          />
         ) : (
           <ActivityList
             rows={rows}

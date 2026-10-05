@@ -28,6 +28,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Settld",
   description: "Split it. Settle it. Shared expenses, live.",
+  // Home Screen app on iPhone (standalone), which is also what enables Web Push there.
+  appleWebApp: { capable: true, title: "Settld", statusBarStyle: "default" },
+  icons: { apple: [{ url: "/pwa-icon/180", sizes: "180x180" }] },
 };
 
 export const viewport: Viewport = {

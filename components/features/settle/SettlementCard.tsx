@@ -1,5 +1,6 @@
 "use client";
 
+import { NewDot } from "@/components/features/social/GroupSocial";
 import { ArrowRight } from "lucide-react";
 import { Amount, Avatar } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -64,8 +65,11 @@ export function SettlementCard({
           {to && <Avatar {...memberAvatar(to)} size="sm" />}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-semibold">
-            {name(from)} paid {name(to)}
+          <span className="flex items-center gap-1.5">
+            <span className="block truncate text-[15px] font-semibold">
+              {name(from)} paid {name(to)}
+            </span>
+            <NewDot type="settlement" id={s.id} />
           </span>
           <span className="mt-1 flex items-center gap-1.5">
             <Chip>{METHOD_LABEL[s.method]}</Chip>
