@@ -42,8 +42,8 @@ import { myTransfers, settlementPlan } from "@/lib/settle";
 import type { Transfer } from "@/lib/simplify";
 import type { GroupBalance, Settlement } from "@/lib/supabase/types";
 import { GroupSettingsSheet } from "./GroupSettingsSheet";
-import { COVER_FADED } from "@/lib/images";
-import { CoverBackdrop } from "./CoverBackdrop";
+import { COVER_FADED, SCRIM_RAMP_HEADER } from "@/lib/images";
+import { CoverBackdrop, CoverScrim } from "./CoverBackdrop";
 import { InviteSheet } from "./InviteSheet";
 import { MembersSheet } from "./MembersSheet";
 
@@ -229,6 +229,8 @@ export function GroupScreen({
   const current = TABS.find((t) => t.id === tab)!;
   const typeLabel = GROUP_TYPES.find((t) => t.value === g.type)?.label ?? "Group";
   const cover = !!g.cover_url;
+  // Secondary labels: 60% on the pastel; COVER_FADED white over the scrim (AA, lib/images.test.ts).
+  const labelFade = cover ? "opacity-[0.85]" : "opacity-60";
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-app pb-[calc(190px+env(safe-area-inset-bottom))]">
@@ -236,13 +238,13 @@ export function GroupScreen({
       <header
         className={cn(
           "relative isolate overflow-hidden rounded-b-[32px] border-[1.5px] border-t-0 border-on-pastel/[0.08] px-5 pt-[calc(12px+env(safe-area-inset-top))]",
-          // With a cover: white text over the scrim (faded parts at 60%), and room at the bottom for
-          // the fade into the group's pastel.
+          // With a cover: the photo shows clear at the top; white text over a scrim behind the text
+          // block only (faded parts at COVER_FADED), and room at the bottom for the fade into the pastel.
           cover ? "pb-12 text-white" : "pb-6 text-on-pastel",
         )}
         style={{ backgroundColor: pastelVar(g.color), ...(cover ? { "--amount-faded": COVER_FADED } : {}) } as React.CSSProperties}
       >
-        <CoverBackdrop url={g.cover_url} color={g.color} />
+        <CoverBackdrop url={g.cover_url} />
         <div className="flex h-11 items-center justify-between">
           <Link
             href="/groups"
@@ -269,11 +271,13 @@ export function GroupScreen({
           )}
         </div>
 
-        <div className="mt-4 text-[56px] leading-none" aria-hidden>
+        <div className={cn("text-[56px] leading-none", cover ? "mt-16 drop-shadow-[0_2px_6px_rgb(0_0_0/0.35)]" : "mt-4")} aria-hidden>
           {g.emoji}
         </div>
+        <div className="relative">
+        {cover && <CoverScrim rampPx={SCRIM_RAMP_HEADER} fadeTo={{ color: pastelVar(g.color), px: 36 }} className="-inset-x-5 -bottom-12" />}
         <h1 className="mt-3 break-words font-display text-[56px] uppercase leading-[0.9]">{g.name}</h1>
-        <p className="micro mt-3 opacity-60">
+        <p className={cn("micro mt-3", labelFade)}>
           {typeLabel} · {CURRENCIES[g.base_currency].symbol} {g.base_currency}
           {archived && " · Archived"}
         </p>
@@ -281,12 +285,12 @@ export function GroupScreen({
         {/* Your position + who has paid so far. Dark text on the pastel (red/green fail contrast here). */}
         <div className="mt-6 flex items-end justify-between gap-3">
           <div>
-            <p className="micro opacity-60">{myNet > 0 ? "You're owed" : myNet < 0 ? "You owe" : "You're all settled"}</p>
+            <p className={cn("micro", labelFade)}>{myNet > 0 ? "You're owed" : myNet < 0 ? "You owe" : "You're all settled"}</p>
             <AnimatedAmount amount={Math.abs(myNet)} currency={g.base_currency} size="lg" className="mt-1" />
           </div>
           {totalSpent > 0 && (
             <div className="text-right">
-              <p className="micro opacity-60">Group spend</p>
+              <p className={cn("micro", labelFade)}>Group spend</p>
               <AnimatedAmount amount={totalSpent} currency={g.base_currency} size="sm" className="mt-1" />
             </div>
           )}
@@ -317,7 +321,7 @@ export function GroupScreen({
                 />
               ))}
             </span>
-            <span className="micro whitespace-nowrap opacity-70">
+            <span className={cn("micro whitespace-nowrap", cover ? "opacity-[0.85]" : "opacity-70")}>
               {members.length > 5 ? `+${members.length - 5} · ` : ""}
               {members.length} {members.length === 1 ? "member" : "members"}
             </span>
@@ -336,6 +340,7 @@ export function GroupScreen({
               Invite
             </button>
           )}
+        </div>
         </div>
       </header>
 

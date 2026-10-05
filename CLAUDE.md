@@ -293,3 +293,16 @@
 - **Error screens:** `app/error.tsx` and `app/global-error.tsx` → `components/ErrorScreen.tsx` ("OOPS BROKE", the error, page, browser and time in a copyable box, Copy details / Reload / Try again / Go to my groups). Chunk errors show "Getting the latest version…" and reload once. **`/debug/crash`** (`?kind=chunk`) crashes on purpose so the screen can be checked from a phone.
 - **SSR audit:** browser APIs (window/localStorage/navigator/document) are only used in effects, handlers or after `typeof` checks; storage access is wrapped in try/catch.
 - **Tests:** `lib/compat.test.ts` runs the inline script in a stripped "old Safari" VM realm (polyfills, reload once, ignores other errors), checks it's ES5, covers `uuid()` without randomUUID and the emoji fallback against Segmenter. Headless against a production build: plain crash → error screen with details; ChunkLoadError → exactly 2 loads, then the screen.
+
+### Covered cards: full-bleed photos (2026-10-05, user request; PRD updated)
+
+- **Problem:** cards showed the cover as a thin dark strip.
+- **Cards** (`GroupCard`, cover branch only; the no-cover markup is byte-identical to before photos):
+  - **Layout:** a full-bleed photo inset 3px inside the card, so the pastel card background shows as a 3px ring; dog-ear kept. `min-h-[240px]` flex column; the next card in the stack covers 16px, so about 224px shows.
+  - **Text:** white. The top row (avatars, date) gets `PHOTO_TEXT_SHADOW` / drop-shadow instead of a band. Status chips stay solid; "Settled up" turns solid white on photos (it was translucent: dark on dark).
+  - **Scrim:** `<CoverScrim>` sits behind the name and members/chip only. It starts `SCRIM_RAMP_CARD` (20 px) above the title and reaches `SCRIM_TEXT` (0.6) exactly at the title.
+- **Shared** (`lib/images.ts`): no pastel wash any more (COVER_TINT removed). `SCRIM_TEXT` 0.6 and `COVER_FADED` 0.85 (85%-white labels pass 4.69:1 over a pure white photo; the old 60% only reached 3.2). `textScrim()`; the scrim is anchored to the text block, not fixed pixel stops, so long names stay covered.
+- **Header:** the photo shows clear behind the nav and emoji (emoji pushed down with `mt-16`). The scrim wraps from the title to the end of the header, 56 px ramp, then a 36 px fade into the pastel. Labels use `labelFade` (0.85 on covers).
+- **Settings preview and invite OG:** same look. The OG has a clear top with a text shadow on the wordmark and label, a scrim from 190 to 270 px down, and a 6 px pastel frame.
+- **Verified at 390px** with the live NIGHTOUT and goa photos, a bright beach scene and pure white, in light and dark: the title sits fully on the scrim on every card and header, clear photo covers 40–46% of the visible card and 132 px of the header, text is white on covers and dark without.
+- **Known limit:** the white date and wordmark at the top rely on a shadow only, so they're faint on a near-white photo (not provably AA).

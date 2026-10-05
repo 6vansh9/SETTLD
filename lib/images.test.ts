@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { contrastRatio } from "./contrast";
-import { clampCrop, COVER_FADED, COVER_TINT, cropRect, SCRIM_TEXT, SCRIM_TITLE, cropSize, initialCrop, isHeic, panBy, pathFromPublicUrl, publicUrl, zoomTo } from "./images";
-import { PASTEL_HEX } from "./pastels";
+import { clampCrop, COVER_FADED, cropRect, SCRIM_TEXT, cropSize, initialCrop, isHeic, panBy, pathFromPublicUrl, publicUrl, zoomTo } from "./images";
 
 describe("crop maths", () => {
   it("zoom 1 is the largest crop of the aspect ratio, centred", () => {
@@ -51,29 +50,19 @@ describe("storage URLs", () => {
 });
 
 describe("cover scrim keeps white text AA on any photo", () => {
-  // Composite in sRGB like the browser: photo → pastel wash → black scrim → (white text at opacity).
+  // Composite in sRGB like the browser: photo → black scrim → white text at an opacity.
   const over = (top: number[], alpha: number, under: number[]) => top.map((c, i) => c * alpha + under[i] * (1 - alpha));
   const hex = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
-  const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const photos = { white: [255, 255, 255], black: [0, 0, 0], grey: [128, 128, 128], sky: [135, 206, 235], sand: [238, 214, 175] };
   const WHITE = [255, 255, 255];
-
-  for (const [pastel, ph] of Object.entries(PASTEL_HEX)) {
-    for (const [photoName, photo] of Object.entries(photos)) {
-      it(`${pastel} over a ${photoName} photo`, () => {
-        const washed = over(rgb(ph), COVER_TINT, photo);
-        const behindText = over([0, 0, 0], SCRIM_TEXT, washed);
-        const behindTitle = over([0, 0, 0], SCRIM_TITLE, washed);
-        // white and 60% white labels/amounts: 4.5:1
-        expect(contrastRatio("#ffffff", hex(behindText))).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(hex(over(WHITE, COVER_FADED, behindText)), hex(behindText))).toBeGreaterThanOrEqual(4.5);
-        // the big name is large text: 3:1
-        expect(contrastRatio("#ffffff", hex(behindTitle))).toBeGreaterThanOrEqual(3);
-      });
-    }
+  for (const [name, photo] of Object.entries(photos)) {
+    it(`over a ${name} photo`, () => {
+      const bg = over([0, 0, 0], SCRIM_TEXT, photo);
+      expect(contrastRatio("#ffffff", hex(bg))).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(hex(over(WHITE, COVER_FADED, bg)), hex(bg))).toBeGreaterThanOrEqual(4.5);
+    });
   }
-
-  it("the photo keeps its colors: the wash is light", () => {
-    expect(COVER_TINT).toBeLessThanOrEqual(0.15);
+  it("the scrim is light (photo stays readable as a photo)", () => {
+    expect(SCRIM_TEXT).toBeLessThanOrEqual(0.6);
   });
 });

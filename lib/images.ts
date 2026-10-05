@@ -14,34 +14,29 @@ export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // bucket limit (0008_photos.sq
 export const MAX_ZOOM = 4;
 
 /**
- * Group covers show the photo in its real colors with a light wash of the group color, and a dark
- * gradient scrim behind the text (white text on covers). The scrim stops are the darkness behind
- * each band of text; lib/images.test.ts proves WCAG AA over a pure white photo (the worst case for
- * white text), a pure black one and mid tones:
- *  • COVER_TINT   light on-brand wash of the group color over the whole photo
- *  • SCRIM_TITLE  behind the big name (large text, 3:1)
- *  • SCRIM_TEXT   behind labels, amounts and members (normal text at 60% white, 4.5:1)
+ * Group covers: the photo in its real colors (no overlay). Readability comes from a scrim that
+ * starts just above the text block and ramps to SCRIM_TEXT behind it; the photo above stays clear.
+ * White text on covers; faded parts (decimals, ₹, secondary labels) at COVER_FADED.
+ * lib/images.test.ts proves WCAG AA over a pure white photo (the worst case for white text):
+ *  • white over SCRIM_TEXT                       5.7:1
+ *  • COVER_FADED white over SCRIM_TEXT (normal)  4.7:1
  */
-export const COVER_TINT = 0.12;
-export const SCRIM_TITLE = 0.6;
-export const SCRIM_TEXT = 0.75;
-/** Faded text on covers (decimals, ₹, secondary labels). */
-export const COVER_FADED = 0.6;
+export const SCRIM_TEXT = 0.6;
+export const COVER_FADED = 0.85;
+/** How far above the text block the scrim starts fading in (px). */
+export const SCRIM_RAMP_HEADER = 56;
+export const SCRIM_RAMP_CARD = 20;
 
 const black = (a: number) => `rgb(0 0 0 / ${a})`;
 
-/**
- * Header scrim (px stops from the top): clear sky behind the nav, darkening by the title, full
- * strength from the labels down, then a short fade into the group's pastel where it meets the page.
- */
-export function headerScrim(pastel: string, fadePx = 36): string {
-  return `linear-gradient(to bottom, ${black(0)} 0px, ${black(0.3)} 56px, ${black(SCRIM_TITLE)} 128px, ${black(SCRIM_TEXT)} 200px, ${black(SCRIM_TEXT)} calc(100% - ${fadePx}px), ${pastel} 100%)`;
+/** Scrim behind a text block: clear → SCRIM_TEXT over `rampPx`, then optionally a short fade into the pastel. */
+export function textScrim(rampPx: number, fadeTo?: { color: string; px: number }): string {
+  const tail = fadeTo ? `${black(SCRIM_TEXT)} calc(100% - ${fadeTo.px}px), ${fadeTo.color} 100%` : `${black(SCRIM_TEXT)} 100%`;
+  return `linear-gradient(to bottom, ${black(0)} 0px, ${black(SCRIM_TEXT)} ${rampPx}px, ${tail})`;
 }
 
-/** Card strip scrim: the avatar row and date sit at the bottom of the strip, then a fade to pastel. */
-export function stripScrim(pastel: string): string {
-  return `linear-gradient(to bottom, ${black(0.15)} 0%, ${black(SCRIM_TEXT)} 45%, ${black(SCRIM_TEXT)} calc(100% - 14px), ${pastel} 100%)`;
-}
+/** Soft shadow for white text/avatars that sit on the clear (unscrimmed) part of a photo. */
+export const PHOTO_TEXT_SHADOW = "0 1px 2px rgb(0 0 0 / 0.55), 0 0 12px rgb(0 0 0 / 0.35)";
 
 export interface CropState {
   zoom: number; // 1 = the largest crop of the output's aspect ratio that fits

@@ -1,5 +1,5 @@
 /* Satori layouts (next/og): flexbox only, inline styles, hex colors. */
-import { COVER_TINT, SCRIM_TEXT } from "@/lib/images";
+import { COVER_FADED, SCRIM_TEXT } from "@/lib/images";
 import { formatParts, type CurrencyCode } from "@/lib/money";
 import { PASTEL_HEX, type Pastel } from "@/lib/pastels";
 
@@ -7,8 +7,8 @@ const INK = "#0E0E0E";
 const CORAL = "#EE6A4B";
 const micro = (size: number) => ({ fontFamily: "Inter", fontSize: size, letterSpacing: size * 0.08, textTransform: "uppercase" as const, opacity: 0.6 });
 
-function Wordmark({ size, color = INK }: { size: number; color?: string }) {
-  return <div style={{ fontFamily: "Anton", fontSize: size, textTransform: "uppercase", color, display: "flex" }}>Settld</div>;
+function Wordmark({ size, color = INK, shadow }: { size: number; color?: string; shadow?: string }) {
+  return <div style={{ fontFamily: "Anton", fontSize: size, textTransform: "uppercase", color, display: "flex", ...(shadow ? { textShadow: shadow } : {}) }}>Settld</div>;
 }
 
 /** Faded-digit rule: symbol and decimals at 35%, whole number full strength (Jersey 10, ₹ via Inter fallback). */
@@ -47,14 +47,12 @@ export function InviteCard({ name, emoji, color, memberCount, cover }: InviteCar
   return (
     <div style={{ width: 1200, height: 630, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 64, background: bg, color: cover ? "#FFFFFF" : INK, position: "relative" }}>
       {cover && (
-        // Same treatment as the app header: the photo in its real colors with a light wash of the
-        // group color, a dark scrim behind the white text (AA; lib/images.test.ts), and a short
-        // fade into the pastel at the bottom edge. The top starts at 0.55 (not clear) because the
-        // invite label sits up there at full white.
+        // Same treatment as the app: the photo in its real colors, clear at the top (top-row text
+        // gets a shadow), a scrim only behind the name and the bottom row, and a 6px pastel frame
+        // so the group keeps its color.
         <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 630, display: "flex" }}>
           {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text -- Satori */}
           <img src={cover} width={1200} height={630} style={{ width: 1200, height: 630, objectFit: "cover" }} />
-          <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 630, background: bg, opacity: COVER_TINT, display: "flex" }} />
           <div
             style={{
               position: "absolute",
@@ -63,14 +61,15 @@ export function InviteCard({ name, emoji, color, memberCount, cover }: InviteCar
               width: 1200,
               height: 630,
               display: "flex",
-              backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.55) 0px, rgba(0,0,0,${SCRIM_TEXT}) 240px, rgba(0,0,0,${SCRIM_TEXT}) 596px, ${bg} 630px)`,
+              backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 190px, rgba(0,0,0,${SCRIM_TEXT}) 270px, rgba(0,0,0,${SCRIM_TEXT}) 630px)`,
             }}
           />
+          <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 630, display: "flex", border: `6px solid ${bg}` }} />
         </div>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Wordmark size={40} color={cover ? "#FFFFFF" : INK} />
-        <div style={{ ...micro(24), ...(cover ? { opacity: 1 } : {}), display: "flex" }}>You&apos;re invited</div>
+        <Wordmark size={40} color={cover ? "#FFFFFF" : INK} shadow={cover ? "0 2px 6px rgba(0,0,0,0.6)" : undefined} />
+        <div style={{ ...micro(24), ...(cover ? { opacity: 1, textShadow: "0 2px 6px rgba(0,0,0,0.6)" } : {}), display: "flex" }}>You&apos;re invited</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ fontSize: 110, display: "flex" }}>{emoji}</div>
@@ -79,7 +78,7 @@ export function InviteCard({ name, emoji, color, memberCount, cover }: InviteCar
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
           <div style={{ fontFamily: "Jersey 10", fontSize: 72, lineHeight: 1, display: "flex" }}>{String(memberCount)}</div>
-          <div style={{ ...micro(26), display: "flex" }}>{memberCount === 1 ? "member" : "members"} · splitting live</div>
+          <div style={{ ...micro(26), ...(cover ? { opacity: COVER_FADED } : {}), display: "flex" }}>{memberCount === 1 ? "member" : "members"} · splitting live</div>
         </div>
         <div style={{ display: "flex", background: CORAL, borderRadius: 999, padding: "20px 40px", fontFamily: "Big Shoulders Display", fontSize: 40, textTransform: "uppercase" }}>
           Tap to join

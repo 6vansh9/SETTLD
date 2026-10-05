@@ -9,7 +9,9 @@ import type { GroupWithMembers } from "@/lib/groups-data";
 import { removeStoredPhoto } from "@/lib/photo-storage";
 import { pastelVar } from "@/lib/pastels";
 import { useSetGroupCover } from "@/lib/queries/groups";
-import { CoverBackdrop } from "./CoverBackdrop";
+import { cn } from "@/lib/cn";
+import { SCRIM_RAMP_CARD } from "@/lib/images";
+import { CoverBackdrop, CoverScrim } from "./CoverBackdrop";
 
 /** Group settings (admins): background photo. Add / Change / Remove, with a live preview. */
 export function GroupCoverControls({ group }: { group: GroupWithMembers }) {
@@ -45,11 +47,15 @@ export function GroupCoverControls({ group }: { group: GroupWithMembers }) {
     <div>
       <p className="micro mb-2 text-ink-faded">Background</p>
       <div
-        className="relative isolate flex aspect-[2/1] w-full items-end overflow-hidden rounded-2xl border-[1.5px] border-on-pastel/[0.08] p-4 text-on-pastel"
+        className={cn(
+          "relative isolate flex aspect-[2/1] w-full items-end overflow-hidden rounded-2xl border-[1.5px] border-on-pastel/[0.08] p-4",
+          group.cover_url ? "text-white" : "text-on-pastel",
+        )}
         style={{ backgroundColor: pastelVar(group.color) }}
       >
-        <CoverBackdrop url={group.cover_url} color={group.color} />
-        <span className="font-display text-[32px] uppercase leading-[0.9]">
+        <CoverBackdrop url={group.cover_url} />
+        <span className="relative font-display text-[32px] uppercase leading-[0.9]">
+          {group.cover_url && <CoverScrim rampPx={SCRIM_RAMP_CARD} className="-inset-x-4 -bottom-4" />}
           {group.emoji} {group.name}
         </span>
       </div>
