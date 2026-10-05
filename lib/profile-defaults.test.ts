@@ -36,6 +36,7 @@ describe("normalizeProfile", () => {
       default_currency: "INR",
       privacy_blur: false,
       onboarded_at: null,
+      avatar_url: null,
       created_at: "",
       updated_at: "",
     });

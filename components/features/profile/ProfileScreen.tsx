@@ -12,6 +12,7 @@ import { signOutAndReset } from "@/lib/session-reset";
 import type { Profile } from "@/lib/supabase/types";
 import { isValidUpiId, normalizeUpiId } from "@/lib/upi";
 import { BottomTabBar } from "@/components/features/nav/BottomTabBar";
+import { ProfilePhotoControls } from "@/components/features/photos/ProfilePhoto";
 import { ColorPicker } from "./ColorPicker";
 import { CurrencyPicker } from "./CurrencyPicker";
 import { TextField } from "./TextField";
@@ -59,10 +60,10 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
         <button
           type="button"
           onClick={() => setEditing("color")}
-          aria-label="Change avatar color"
+          aria-label="Change photo or avatar color"
           className="rounded-full"
         >
-          <Avatar name={profile.name} color={profile.avatar_color} size="lg" className="size-20 text-[26px]" />
+          <Avatar name={profile.name} color={profile.avatar_color} photo={profile.avatar_url} size="lg" className="size-20 text-[26px]" />
         </button>
       </div>
 
@@ -125,6 +126,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
       />
       <ColorSheet
         open={editing === "color"}
+        profile={profile}
         name={profile.name}
         initial={profile.avatar_color}
         saving={update.isPending}
@@ -227,9 +229,12 @@ function NameForm({ initial, saving, error, onSave }: Omit<EditSheetProps<string
   );
 }
 
-function ColorSheet({ open, onClose, ...rest }: EditSheetProps<Pastel> & { name: string }) {
+function ColorSheet({ open, onClose, profile, ...rest }: EditSheetProps<Pastel> & { name: string; profile: Profile }) {
   return (
-    <Sheet open={open} onClose={onClose} title="Avatar color">
+    <Sheet open={open} onClose={onClose} title="Photo and color">
+      <p className="micro mb-2 text-ink-faded">Photo</p>
+      <ProfilePhotoControls initialProfile={profile} />
+      <p className="micro mb-2 mt-6 text-ink-faded">Color · shown around your photo, or behind your initials</p>
       <ColorForm {...rest} />
     </Sheet>
   );

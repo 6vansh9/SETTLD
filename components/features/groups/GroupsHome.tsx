@@ -61,7 +61,7 @@ export function GroupsHome({
           </Link>
           <PrivacyToggle />
           <Link href="/me" aria-label="Your profile" className="rounded-full">
-            <Avatar name={me.name} color={me.avatar_color} size="lg" className="size-11" />
+            <Avatar name={me.name} color={me.avatar_color} photo={me.avatar_url} size="lg" className="size-11" />
           </Link>
         </div>
       </header>

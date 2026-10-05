@@ -47,6 +47,13 @@ export function useMyActivityRealtime(groupIds: string[], userId: string) {
         },
         refresh,
       )
+      // New group backgrounds and profile photos (RLS: only my groups / people I share one with).
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "groups", ...(ids.length <= MAX_IN_FILTER ? { filter: `id=in.(${ids.join(",")})` } : {}) },
+        refresh,
+      )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, refresh)
       .subscribe((s) => {
         if (s === "SUBSCRIBED") {
           if (wasLive) refresh();

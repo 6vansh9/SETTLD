@@ -5,11 +5,13 @@ import type { Database, Group, GroupMember } from "@/lib/supabase/types";
 /** Works with both the browser and the server Supabase client. */
 type Client = SupabaseClient<Database>;
 
-export type MemberWithProfile = GroupMember & { profile: { avatar_color: Pastel; upi_id: string | null } | null };
+export type MemberWithProfile = GroupMember & {
+  profile: { avatar_color: Pastel; upi_id: string | null; avatar_url?: string | null } | null;
+};
 export type GroupWithMembers = Group & { members: MemberWithProfile[] };
 
 const GROUP_SELECT =
-  "*, members:group_members(id, group_id, user_id, display_name, is_ghost, role, joined_at, left_at, profile:profiles(avatar_color, upi_id))";
+  "*, members:group_members(id, group_id, user_id, display_name, is_ghost, role, joined_at, left_at, profile:profiles(avatar_color, upi_id, avatar_url))";
 
 function sortMembers(group: GroupWithMembers): GroupWithMembers {
   // Real members first in join order, ghosts after.
@@ -55,5 +57,11 @@ export function myMember(group: GroupWithMembers, userId: string): MemberWithPro
 
 /** Avatar props for a member: their profile color, or a dashed ghost. */
 export function memberAvatar(m: MemberWithProfile) {
-  return { name: m.display_name, color: m.profile?.avatar_color ?? ("lilac" as Pastel), ghost: m.is_ghost };
+  // Ghosts never have photos (no account, no profile).
+  return {
+    name: m.display_name,
+    color: m.profile?.avatar_color ?? ("lilac" as Pastel),
+    ghost: m.is_ghost,
+    photo: m.is_ghost ? null : (m.profile?.avatar_url ?? null),
+  };
 }

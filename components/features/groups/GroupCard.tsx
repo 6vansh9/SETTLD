@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 import { microDate } from "@/lib/groups";
 import { activeMembers, memberAvatar, type GroupWithMembers } from "@/lib/groups-data";
 import { pastelVar } from "@/lib/pastels";
+import { CoverBackdrop } from "./CoverBackdrop";
 
 /** Stacked Home card: avatars + date on top, big name, balance at the bottom. */
 export function GroupCard({ group, href, myNet = 0 }: { group: GroupWithMembers; href?: string; myNet?: number }) {
@@ -11,8 +12,10 @@ export function GroupCard({ group, href, myNet = 0 }: { group: GroupWithMembers;
   const people = members.map(memberAvatar);
 
   const body = (
-    <Card color={group.color} dogEar className="transition-transform active:scale-[0.99]">
-      <div className="flex items-start justify-between">
+    <Card color={group.color} dogEar className={cn("transition-transform active:scale-[0.99]", group.cover_url && "isolate overflow-hidden")}>
+      <div className={cn("relative flex items-start justify-between", group.cover_url && "-mx-5 -mt-5 px-5 pb-3 pt-5")}>
+        {/* A tinted strip of the group's background photo behind the top row. */}
+        <CoverBackdrop url={group.cover_url} color={group.color} />
         <div style={{ "--avatar-ring": pastelVar(group.color) } as React.CSSProperties}>
           <AvatarStack people={people} size="sm" max={4} />
         </div>

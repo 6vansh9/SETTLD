@@ -51,6 +51,7 @@ export function ActivityList({
                   <Avatar
                     name={r.actor?.display_name ?? "?"}
                     color={(PASTELS as readonly string[]).includes(color ?? "") ? (color as Pastel) : "lilac"}
+                    photo={r.actor?.user_id ? r.actor?.profile?.avatar_url : null}
                     size="sm"
                   />
                   <span className="min-w-0 flex-1">

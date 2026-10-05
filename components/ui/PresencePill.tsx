@@ -1,6 +1,8 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { Avatar } from "./Avatar";
+import type { Pastel } from "@/lib/pastels";
 import { fade, spring } from "@/lib/motion";
 import type { CurrencyCode } from "@/lib/money";
 import { Amount } from "./Amount";
@@ -11,6 +13,8 @@ export interface PillItem {
   amount?: { value: number; currency: CurrencyCode } | null;
   /** Someone is doing it right now (shows a pulsing dot; stays until they stop). */
   live?: boolean;
+  /** Who it's about: their photo (or initials) leads the pill. */
+  person?: { name: string; color?: Pastel; photo?: string | null; ghost?: boolean } | null;
   onTap?: () => void;
 }
 
@@ -40,6 +44,7 @@ export function PresencePill({ item, onTap }: { item: PillItem | null; onTap?: (
                 <span className="relative size-2.5 rounded-full bg-coral" />
               </span>
             )}
+            {item.person && <Avatar {...item.person} size="sm" className="-my-1 -ml-1.5 size-6 text-[10px]" />}
             <span className="truncate text-[13px] font-semibold">{item.text}</span>
             {item.amount && <Amount amount={item.amount.value} currency={item.amount.currency} size="sm" className="text-[18px]" />}
           </motion.button>

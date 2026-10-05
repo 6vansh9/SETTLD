@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Archive, ArchiveRestore } from "lucide-react";
 import { useState } from "react";
 import { Button, Sheet, Switch } from "@/components/ui";
+import { GroupCoverControls } from "./GroupCoverControls";
 import { friendlyError, validateName } from "@/lib/groups";
 import type { GroupWithMembers } from "@/lib/groups-data";
 import type { Pastel } from "@/lib/pastels";
@@ -73,6 +74,8 @@ function SettingsBody({ group, onDone }: { group: GroupWithMembers; onDone: () =
           This group is archived and read-only. Unarchive it to make changes or invite people.
         </p>
       ) : (
+        <>
+        <GroupCoverControls group={group} />
         <form onSubmit={save} noValidate className="space-y-6">
           <GroupPreview name={name} emoji={emoji} color={color} />
           <GroupNameField value={name} onChange={setName} error={name ? nameError : null} />
@@ -82,6 +85,7 @@ function SettingsBody({ group, onDone }: { group: GroupWithMembers; onDone: () =
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
         </form>
+        </>
       )}
 
       {!archived && (

@@ -64,6 +64,7 @@ export function DebtGraph({
         color: (m.profile?.avatar_color ?? "lilac") as Pastel,
         net: netOf.get(m.id) ?? 0,
         isMe: m.id === myMemberId,
+        photo: m.is_ghost ? null : (m.profile?.avatar_url ?? null),
       }));
     const { nodes, nodeOf, folded } = capNodes(members);
 
@@ -206,9 +207,26 @@ export function DebtGraph({
                 className="cursor-pointer"
               >
                 <circle r={n.r} fill={pastelVar(n.color)} stroke={isSel ? "rgb(var(--ink-rgb))" : "rgb(14 14 14 / 0.1)"} strokeWidth={isSel ? 3 : 1.5} />
-                <text textAnchor="middle" dy="0.35em" fontSize={Math.max(11, n.r * 0.55)} fontWeight={600} fill="#0E0E0E" style={{ fontFamily: "var(--font-inter)" }}>
+{n.photo ? (
+                  <>
+                    <clipPath id={`photo-${n.id}`}>
+                      <circle r={n.r - 3} />
+                    </clipPath>
+                    <image
+                      href={n.photo}
+                      x={-(n.r - 3)}
+                      y={-(n.r - 3)}
+                      width={(n.r - 3) * 2}
+                      height={(n.r - 3) * 2}
+                      preserveAspectRatio="xMidYMid slice"
+                      clipPath={`url(#photo-${n.id})`}
+                    />
+                  </>
+                ) : (
+                                  <text textAnchor="middle" dy="0.35em" fontSize={Math.max(11, n.r * 0.55)} fontWeight={600} fill="#0E0E0E" style={{ fontFamily: "var(--font-inter)" }}>
                   {n.id === OTHERS_ID ? n.name : initials(n.name === "You" ? (group.members.find((m) => m.id === n.id)?.display_name ?? "You") : n.name)}
                 </text>
+                )}
                 <text y={n.r + 14} textAnchor="middle" fontSize={11} fontWeight={600} fill="rgb(var(--ink-rgb))" style={{ fontFamily: "var(--font-inter)" }}>
                   {n.id === OTHERS_ID ? "others" : n.name}
                 </text>

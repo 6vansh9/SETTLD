@@ -26,6 +26,7 @@ export interface Database {
           default_currency: CurrencyCode;
           privacy_blur: boolean;
           onboarded_at: string | null;
+          avatar_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -47,6 +48,7 @@ export interface Database {
           default_currency?: CurrencyCode;
           privacy_blur?: boolean;
           onboarded_at?: string | null;
+          avatar_url?: string | null;
         };
         Relationships: [];
       };
@@ -59,6 +61,7 @@ export interface Database {
           base_currency: CurrencyCode;
           type: GroupType;
           simplify: boolean;
+          cover_url: string | null;
           created_by: string | null;
           archived_at: string | null;
           created_at: string;
@@ -324,7 +327,7 @@ export interface Database {
       };
       preview_invite: {
         Args: { p_token: string };
-        Returns: { name: string; emoji: string; color: Pastel; member_count: number }[];
+        Returns: { name: string; emoji: string; color: Pastel; member_count: number; cover_url: string | null }[];
       };
       invite_details: {
         Args: { p_token: string };
@@ -405,6 +408,7 @@ export interface Database {
       assign_claim: { Args: { p_item_id: string; p_member_id: string; p_on?: boolean | null }; Returns: number };
       finalize_room: { Args: { p_room_id: string; p_payer?: string | null; p_client_id?: string | null }; Returns: string };
       cancel_room: { Args: { p_room_id: string }; Returns: undefined };
+      set_group_cover: { Args: { p_group_id: string; p_url: string | null }; Returns: undefined };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

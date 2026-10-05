@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { InviteCard } from "@/lib/og/cards";
+import { coverDataUrl } from "@/lib/og/cover";
 import { ogFonts } from "@/lib/og/fonts";
 import type { Pastel } from "@/lib/pastels";
 import { createClient } from "@/lib/supabase/server";
@@ -11,11 +12,17 @@ export const runtime = "nodejs";
  * color, member count). An expired/unknown link still gets a generic Settld card.
  */
 export async function GET(_req: Request, { params }: { params: { token: string } }) {
-  let data = { name: "Join on Settld", emoji: "💸", color: "pink" as Pastel, memberCount: 0 };
+  let data: { name: string; emoji: string; color: Pastel; memberCount: number; cover: string | null } = {
+    name: "Join on Settld",
+    emoji: "💸",
+    color: "pink",
+    memberCount: 0,
+    cover: null,
+  };
   if (/^[A-Za-z0-9_-]{12,64}$/.test(params.token)) {
     const { data: rows } = await createClient().rpc("preview_invite", { p_token: params.token });
     const g = rows?.[0];
-    if (g) data = { name: g.name, emoji: g.emoji, color: g.color, memberCount: g.member_count };
+    if (g) data = { name: g.name, emoji: g.emoji, color: g.color, memberCount: g.member_count, cover: await coverDataUrl(g.cover_url) };
   }
   return new ImageResponse(<InviteCard {...data} />, {
     width: 1200,

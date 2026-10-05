@@ -26,6 +26,7 @@ export function normalizeProfile(raw: Partial<Record<keyof Profile, unknown>> & 
     default_currency: currency && isCurrencyCode(currency) ? currency : "INR",
     privacy_blur: raw.privacy_blur === true,
     onboarded_at: str(raw.onboarded_at),
+    avatar_url: str(raw.avatar_url) || null,
     created_at: str(raw.created_at) ?? "",
     updated_at: str(raw.updated_at) ?? "",
   };

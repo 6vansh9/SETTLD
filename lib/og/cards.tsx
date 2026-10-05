@@ -1,4 +1,5 @@
 /* Satori layouts (next/og): flexbox only, inline styles, hex colors. */
+import { COVER_TINT } from "@/lib/images";
 import { formatParts, type CurrencyCode } from "@/lib/money";
 import { PASTEL_HEX, type Pastel } from "@/lib/pastels";
 
@@ -35,14 +36,24 @@ export interface InviteCardData {
   emoji: string;
   color: Pastel;
   memberCount: number;
+  /** Cover image as a data URL (PNG/JPEG), already fetched by the route. */
+  cover?: string | null;
 }
 
 /** 1200×630 link preview for /join/<token>. */
-export function InviteCard({ name, emoji, color, memberCount }: InviteCardData) {
+export function InviteCard({ name, emoji, color, memberCount, cover }: InviteCardData) {
   const bg = PASTEL_HEX[color] ?? PASTEL_HEX.pink;
   const long = name.length > 14;
   return (
-    <div style={{ width: 1200, height: 630, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 64, background: bg, color: INK }}>
+    <div style={{ width: 1200, height: 630, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 64, background: bg, color: INK, position: "relative" }}>
+      {cover && (
+        // The group's background under the same pastel tint as the app header (dark text stays AA).
+        <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 630, display: "flex" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text -- Satori */}
+          <img src={cover} width={1200} height={630} style={{ width: 1200, height: 630, objectFit: "cover" }} />
+          <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 630, background: bg, opacity: COVER_TINT, display: "flex" }} />
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Wordmark size={40} />
         <div style={{ ...micro(24), display: "flex" }}>You&apos;re invited</div>

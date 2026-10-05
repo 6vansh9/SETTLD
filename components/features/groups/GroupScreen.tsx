@@ -42,6 +42,7 @@ import { myTransfers, settlementPlan } from "@/lib/settle";
 import type { Transfer } from "@/lib/simplify";
 import type { GroupBalance, Settlement } from "@/lib/supabase/types";
 import { GroupSettingsSheet } from "./GroupSettingsSheet";
+import { CoverBackdrop } from "./CoverBackdrop";
 import { InviteSheet } from "./InviteSheet";
 import { MembersSheet } from "./MembersSheet";
 
@@ -140,12 +141,20 @@ export function GroupScreen({
       const actor = membersRef.current.find((m) => m.id === a.actor_member);
       const myName = membersRef.current.find((m) => m.user_id === myUserId)?.display_name;
       const line = describeActivity({ ...a, actor: actor ? { display_name: actor.display_name, user_id: actor.user_id } : null }, myUserId, myName);
-      pushRef.current({ key: `act:${a.id}`, text: pillText(line), amount: line.amount, onTap: () => openTarget(line.target) });
+      pushRef.current({
+        key: `act:${a.id}`,
+        text: pillText(line),
+        amount: line.amount,
+        person: actor ? memberAvatar(actor) : null,
+        onTap: () => openTarget(line.target),
+      });
     },
     [myUserId, openTarget],
   );
   const { status, presence, setScreen } = useGroupRealtime(initialGroup.id, me?.id ?? "", onActivity);
-  const pill = usePillQueue(me ? presenceText(presence, me.id, names) : null);
+  const presenceWho = me ? presence.find((x) => x.member_id !== me.id && x.typing && x.screen !== "group") : undefined;
+  const presenceMember = presenceWho ? g.members.find((m) => m.id === presenceWho.member_id) : undefined;
+  const pill = usePillQueue(me ? presenceText(presence, me.id, names) : null, presenceMember ? memberAvatar(presenceMember) : null);
   pushRef.current = pill.push;
   const screen = editor ? "add-expense" : settle ? "settle" : "group";
   useEffect(() => setScreen(screen), [screen, setScreen]);
@@ -223,9 +232,10 @@ export function GroupScreen({
     <div className="mx-auto min-h-dvh w-full max-w-app pb-[calc(190px+env(safe-area-inset-bottom))]">
       {/* Pastel header */}
       <header
-        className="rounded-b-[32px] border-[1.5px] border-t-0 border-on-pastel/[0.08] px-5 pb-6 pt-[calc(12px+env(safe-area-inset-top))] text-on-pastel"
+        className="relative isolate overflow-hidden rounded-b-[32px] border-[1.5px] border-t-0 border-on-pastel/[0.08] px-5 pb-6 pt-[calc(12px+env(safe-area-inset-top))] text-on-pastel"
         style={{ backgroundColor: pastelVar(g.color) }}
       >
+        <CoverBackdrop url={g.cover_url} color={g.color} />
         <div className="flex h-11 items-center justify-between">
           <Link
             href="/groups"

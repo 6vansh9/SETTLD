@@ -134,3 +134,12 @@ export function useClaimGhost() {
     onSuccess: (groupId) => invalidate(groupId),
   });
 }
+
+/** Admin: set or clear the group background (URL into our group-covers bucket). */
+export function useSetGroupCover(groupId: string) {
+  const invalidate = useInvalidateGroup();
+  return useMutation({
+    mutationFn: (url: string | null) => rpc(createClient().rpc("set_group_cover", { p_group_id: groupId, p_url: url })),
+    onSuccess: () => invalidate(groupId),
+  });
+}

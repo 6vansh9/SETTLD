@@ -7,13 +7,14 @@ import { useEffect, useState } from "react";
 import { ColorPicker } from "@/components/features/profile/ColorPicker";
 import { CurrencyPicker } from "@/components/features/profile/CurrencyPicker";
 import { TextField } from "@/components/features/profile/TextField";
+import { ProfilePhotoControls } from "@/components/features/photos/ProfilePhoto";
 import { Avatar, Button, Title } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { fade, spring } from "@/lib/motion";
 import type { CurrencyCode } from "@/lib/money";
 import type { Pastel } from "@/lib/pastels";
 import { nextStep, previousStep, stepHref, stepsFor, type OnboardingStep } from "@/lib/onboarding";
-import { useUpdateProfile } from "@/lib/queries/profile";
+import { useProfile, useUpdateProfile } from "@/lib/queries/profile";
 import type { Profile, ProfileUpdate } from "@/lib/supabase/types";
 import { isValidUpiId, normalizeUpiId } from "@/lib/upi";
 import { HomeScreenGuide, isStandalone } from "./HomeScreenGuide";
@@ -50,6 +51,8 @@ export function OnboardingFlow({
   const [direction, setDirection] = useState(1);
   const [name, setName] = useState(initialProfile.name);
   const [color, setColor] = useState<Pastel>(initialProfile.avatar_color);
+  const { data: liveProfile } = useProfile(initialProfile);
+  const photo = liveProfile?.avatar_url ?? null;
   const [upi, setUpi] = useState(initialProfile.upi_id ?? "");
   const [currency, setCurrency] = useState<CurrencyCode>(initialProfile.default_currency);
   const [error, setError] = useState<string | null>(null);
@@ -204,9 +207,13 @@ export function OnboardingFlow({
 
           {step === "color" && (
             <>
-              <div className="mb-8 flex justify-center">
-                <Avatar name={trimmedName} color={color} size="lg" className="size-24 text-[32px]" />
+              <div className="mb-4 flex justify-center">
+                <Avatar name={trimmedName} color={color} photo={photo} size="lg" className="size-24 text-[32px]" />
               </div>
+              <div className="mb-8 flex justify-center">
+                <ProfilePhotoControls initialProfile={initialProfile} />
+              </div>
+              <p className="micro mb-3 text-ink-faded">{photo ? "Ring color" : "Or pick a color"}</p>
               <ColorPicker name={trimmedName} value={color} onChange={setColor} />
             </>
           )}

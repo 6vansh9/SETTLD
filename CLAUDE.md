@@ -244,3 +244,26 @@
     - join screen and the expired screen
   - **Tests:** 320 passing.
 - **Not verified here:** real Realtime across devices and the live migration (run `0007_split_rooms.sql` in the Supabase SQL Editor first).
+
+### Photos: profile photos + group backgrounds ✅ (2026-10-05, user request; PRD updated)
+
+- **Status before:** the feature didn't exist at all (no columns, buckets, storage code or upload UI), so it was built from scratch.
+- **SQL, `supabase/migrations/0008_photos.sql`** (idempotent):
+  - **Columns:** `profiles.avatar_url` and `groups.cover_url`. Check constraints only accept `…/storage/v1/object/public/<bucket>/<the row's own id>/<uuid>.(webp|jpg)`, so nothing can be hot-linked.
+  - **Buckets:** `avatars` and `group-covers` (public, 2 MB, `image/webp` and `image/jpeg`).
+  - **Storage RLS** on `storage.objects` (insert/select/update/delete): avatars only in your own folder; covers only for admins of the folder's group. Both go through `photo_folder(name)`.
+  - **RPCs:** `set_group_cover(group, url)` (admins, writable groups). `preview_invite` now also returns `cover_url` (dropped and recreated, grants restored).
+  - **Realtime:** `groups` and `profiles` added to the publication.
+  - **PGlite:** 24 checks with a stubbed storage schema.
+- **Images, `lib/images.ts` (tested):** pure crop maths (cropSize/clampCrop/panBy/zoomTo), `loadImage` (`<img>` decode, then createImageBitmap with EXIF orientation; a clear message for HEIC the browser can't decode), `renderCrop` (canvas, WebP 0.8 → JPEG fallback, steps quality down to stay under 2 MB), and `uploadWithProgress` (XHR to Storage; supabase-js has no progress events). `COVER_TINT = 0.74`: the test proves dark text is ≥ 4.5:1 for every pastel over a black and a white photo (sky needs 0.70).
+- **UI:**
+  - `components/features/photos/PhotoFlow.tsx` (`usePhotoFlow`): `accept="image/*"`, so iPhone offers Photos, Camera and Files and converts HEIC. Crop sheet: drag to move, zoom slider/buttons/wheel, round or 2:1 mask, then a progress bar.
+  - `ProfilePhoto.tsx`: Add/Change/Remove, plus "Use my Google photo" for Google accounts. `/api/avatar/google` fetches the user's own googleusercontent picture server-side at 512 px, and the browser crops and uploads it to our bucket.
+  - Replacing or removing a photo deletes the old file (`lib/photo-storage.ts`).
+- **Where:**
+  - **Photo controls:** on `/me`, tapping the avatar opens "Photo and color"; onboarding's avatar step has the same controls above the color picker.
+  - **Avatar:** `Avatar` takes `photo` and shows it inside a 2 px ring of the person's pastel. It falls back to initials on load error, including errors before hydration, and ghosts never show one. `memberAvatar()` carries the photo, so every list, sheet, the Split Room, the activity feed, the presence pill (new avatar slot), the Debt Graph (SVG clipPath image) and Home's header avatar show it.
+  - **Covers:** set in Group settings → Background (admins), with a live preview. `CoverBackdrop` puts the photo under the tint in the `/g/[id]` header and in a strip at the top of Home group cards. The invite OG image uses the tinted cover: Satori can't decode WebP, so `lib/og/cover.ts` converts it to JPEG with **sharp** (new dependency), fetching only from our bucket host.
+  - **Live updates:** the group channel listens to `groups` (this group) and `profiles` updates; Home listens to `groups`/`profiles` updates.
+- **Verified:** headless at 390px (11 checks): photo avatars, initials fallback on a broken photo, no photo for ghosts, a 4032×3024 photo → crop → upload of a 256×256 WebP to `avatars/<me>/<uuid>.webp` with my token and no upsert, 1200×600 WebP cover upload, progress bar, HEIC message, tinted card strip and header. The OG invite was rendered with a WebP cover over sky (the darkest pastel). Tests: 332 passing.
+- **Not verified here:** real Supabase Storage uploads and policies (run 0008 first), iPhone HEIC/camera, and the Google photo copy.

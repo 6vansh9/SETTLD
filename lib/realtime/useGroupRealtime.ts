@@ -118,7 +118,10 @@ export function useGroupRealtime(
         .on("postgres_changes", { event: "*", schema: "public", table: "settlements", filter }, handle("settlements", "settlements"))
         .on("postgres_changes", { event: "*", schema: "public", table: "group_members", filter }, handle("group_members", "members"))
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity", filter }, handle("activity", "activity"))
-        .on("postgres_changes", { event: "*", schema: "public", table: "split_rooms", filter }, handle("split_rooms", "rooms"));
+        .on("postgres_changes", { event: "*", schema: "public", table: "split_rooms", filter }, handle("split_rooms", "rooms"))
+        // Background photo / name changes, and members' new profile photos.
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "groups", filter: `id=eq.${groupId}` }, handle("groups", "members"))
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, handle("profiles", "members"));
       if (isPrivate) {
         ch.on("presence", { event: "sync" }, () => setPresence(Object.values(ch.presenceState<PresenceState>()).flat()));
       }

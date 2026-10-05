@@ -133,9 +133,9 @@ Pastels stay pastel in dark mode, with black text on top, so cards glow against 
 | # | Screen | Route | Layout notes |
 | --- | --- | --- | --- |
 | 1 | Landing | `/` | Giant SPLIT / IT / SETTLD stacked title, faded second line; three pastel cards fanned below; Continue with Google + email |
-| 2 | Onboarding | `/onboarding` | Name, avatar color, UPI ID (optional), default currency; last step = animated Add to Home Screen guide |
-| 3 | Home (Groups) | `/groups` | Title SETTLD / GROUPS; overall balance in Jersey 10; stacked group cards with dog-ear, date, members, your balance |
-| 4 | Group | `/g/[id]` | Pastel header with emoji + name; balance split bar; tabs: Expenses, Balances, Graph, Activity; coral SETTLE UP footer |
+| 2 | Onboarding | `/onboarding` | Name, avatar (optional photo: Add photo / Use my Google photo; color as the fallback and photo ring), UPI ID (optional), default currency; last step = animated Add to Home Screen guide |
+| 3 | Home (Groups) | `/groups` | Title SETTLD / GROUPS; overall balance in Jersey 10; stacked group cards with dog-ear, date, members, your balance; a tinted strip of the group background photo at the top when there is one |
+| 4 | Group | `/g/[id]` | Pastel header with emoji + name (over the group background photo under a pastel tint when set; admins set it in Group settings); balance split bar; tabs: Expenses, Balances, Graph, Activity; coral SETTLE UP footer |
 | 5 | Expense detail | sheet | Big amount, payer, split bar, per-person rows, reactions row, comment thread, edit and delete |
 | 6 | Add expense | sheet | Full-screen numpad, title, payer picker, split type tabs (Equal, Exact, %, Shares), currency chip, category, date |
 | 7 | Command bar | overlay | Single text field; live preview card of the parsed expense; Enter to save |
@@ -145,7 +145,7 @@ Pastels stay pastel in dark mode, with black text on top, so cards glow against 
 | 11 | Split Room | `/room/[code]` | Live bill: item cards, avatars of who tapped each, running per-person totals, QR to join, Finalize button |
 | 12 | Join group | `/join/[token]` | Preview card (group name, color, members); Join, or claim a ghost member slot |
 | 13 | Activity | `/activity` | Timeline across all groups, grouped by day, with group color stripe |
-| 14 | Profile | `/me` | Avatar, UPI ID, default currency, theme, privacy blur default, sign out |
+| 14 | Profile | `/me` | Avatar (tap: Add / Change / Remove photo, Use my Google photo, avatar color), UPI ID, default currency, theme, privacy blur default, sign out |
 
 **Empty states** are designed, not blank: a single huge faded word (NOTHING / YET) with one CTA.
 
@@ -294,8 +294,8 @@ All money is stored as `bigint` minor units (paise, cents) with a `currency` cod
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `profiles` | id (= auth.users.id), name, avatar_color, upi_id, default_currency, privacy_blur | One per user |
-| `groups` | id, name, emoji, color, base_currency, type, simplify, created_by, archived_at | |
+| `profiles` | id (= auth.users.id), name, avatar_color, avatar_url (nullable), upi_id, default_currency, privacy_blur | One per user |
+| `groups` | id, name, emoji, color, cover_url (nullable), base_currency, type, simplify, created_by, archived_at | |
 | `group_members` | id, group_id, user_id (nullable), display_name, is_ghost, role, joined_at | Ghosts have user_id null; claiming sets it |
 | `invites` | id, group_id, token (unique), created_by, revoked_at, ghost_member_id (nullable) | ghost_member_id = personal claim link |
 | `expenses` | id, group_id, title, amount, currency, fx_rate_to_base, amount_base, category, date, note, created_by, client_id, deleted_at | Soft delete |
@@ -315,6 +315,14 @@ All money is stored as `bigint` minor units (paise, cents) with a `currency` cod
 **Balances** are computed by a Postgres view `group_balances` (paid − owed ± settlements per member) so every client reads the same numbers. Simplification runs on the client from that view.
 
 **Writes that touch several tables** (expense + payers + splits, ghost claim, Split Room finalize) go through Postgres functions called with `supabase.rpc()` so they are atomic and validate that sums match.
+
+### Photos
+
+- Optional profile photos and group backgrounds. Without one: initials on the person's pastel, and the plain group color.
+- Supabase Storage buckets `avatars` and `group-covers`: public read by URL with random UUID file names (`<user or group id>/<uuid>.webp`), 2 MB max, WebP/JPEG only. Storage RLS: users write only their own avatar folder; only group admins write their group's cover folder. `avatar_url` / `cover_url` must point into the row's own folder in our bucket (no hot-linking); covers change only through `set_group_cover` (admins).
+- Images are cropped, resized and compressed in the browser before upload: avatars 256×256 (round mask), covers 1200×600 (wide mask), WebP ~80% with JPEG fallback. Works with iPhone photos (Safari converts HEIC). Replacing or removing a photo deletes the old file. "Use my Google photo" copies the Google picture into our bucket.
+- Avatars show the photo everywhere (lists, sheets, Debt Graph, presence pill, Split Room) inside a ring in the person's avatar color. Ghosts never have photos.
+- Covers sit under a pastel tint in the group color (`COVER_TINT` = 0.74) so dark text stays WCAG AA on any photo. The invite preview image uses the tinted cover. Photo changes reach other phones live (groups and profiles are in the realtime publication).
 
 ### Row-level security
 

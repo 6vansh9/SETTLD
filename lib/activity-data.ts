@@ -7,7 +7,7 @@ type Client = SupabaseClient<Database>;
 
 export type FeedRow = ActivityRow & { group?: { name: string; color: Pastel; emoji: string } | null };
 
-const SELECT = "*, actor:group_members!activity_actor_member_fkey(display_name, user_id, profile:profiles(avatar_color))";
+const SELECT = "*, actor:group_members!activity_actor_member_fkey(display_name, user_id, profile:profiles(avatar_color, avatar_url))";
 
 /** One group's activity, newest first. */
 export async function fetchGroupActivity(supabase: Client, groupId: string, limit = 150): Promise<FeedRow[]> {

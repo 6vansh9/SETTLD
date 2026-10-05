@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { pastelVar, type Pastel } from "@/lib/pastels";
 
@@ -28,11 +31,43 @@ export interface AvatarProps {
   size?: AvatarSize;
   /** Ghost member (no account yet): dashed outline, no fill. */
   ghost?: boolean;
+  /** Profile photo URL. Shown inside a ring in the person's color; ghosts never show one. */
+  photo?: string | null;
   className?: string;
 }
 
-/** Initials on a pastel circle. */
-export function Avatar({ name, color = "lilac", size = "md", ghost = false, className }: AvatarProps) {
+/** A photo in a ring of the person's color, or initials on their pastel. */
+export function Avatar({ name, color = "lilac", size = "md", ghost = false, photo, className }: AvatarProps) {
+  const [broken, setBroken] = useState<string | null>(null);
+  const img = useRef<HTMLImageElement>(null);
+  // A server-rendered <img> can fail before hydration (onError never fires): check on mount.
+  useEffect(() => {
+    const el = img.current;
+    if (el && photo && el.complete && el.naturalWidth === 0) setBroken(photo);
+  }, [photo]);
+  if (photo && !ghost && broken !== photo) {
+    return (
+      <span
+        title={name}
+        aria-label={name}
+        role="img"
+        className={cn("inline-flex shrink-0 select-none rounded-full p-[2px]", sizeClass[size], className)}
+        style={{ backgroundColor: pastelVar(color) }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- tiny, already 256px WebP from our bucket */}
+        <img
+          ref={img}
+          src={photo}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onError={() => setBroken(photo)}
+          className="size-full rounded-full object-cover"
+        />
+      </span>
+    );
+  }
   return (
     <span
       title={ghost ? `${name} (not joined yet)` : name}
@@ -54,7 +89,7 @@ export function Avatar({ name, color = "lilac", size = "md", ghost = false, clas
 }
 
 export interface AvatarStackProps {
-  people: { name: string; color?: Pastel; ghost?: boolean }[];
+  people: { name: string; color?: Pastel; ghost?: boolean; photo?: string | null }[];
   size?: AvatarSize;
   /** Max avatars shown before collapsing into "+N". */
   max?: number;

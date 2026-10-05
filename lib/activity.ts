@@ -9,7 +9,7 @@ export interface ActivityRow {
   entity_id: string | null;
   payload: Record<string, unknown>;
   created_at: string;
-  actor?: { display_name: string; user_id: string | null; profile?: { avatar_color: string } | null } | null;
+  actor?: { display_name: string; user_id: string | null; profile?: { avatar_color: string; avatar_url?: string | null } | null } | null;
 }
 
 export type ActivityTarget = { type: "expense" | "settlement"; id: string } | { type: "members" } | { type: "room"; code: string } | null;

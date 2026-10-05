@@ -11,6 +11,8 @@ export interface GraphMember {
   color: string;
   net: number;
   isMe?: boolean;
+  /** Profile photo (never for ghosts). */
+  photo?: string | null;
 }
 
 export interface GraphNode extends GraphMember {
