@@ -12,7 +12,7 @@ export interface ActivityRow {
   actor?: { display_name: string; user_id: string | null; profile?: { avatar_color: string } | null } | null;
 }
 
-export type ActivityTarget = { type: "expense" | "settlement"; id: string } | { type: "members" } | null;
+export type ActivityTarget = { type: "expense" | "settlement"; id: string } | { type: "members" } | { type: "room"; code: string } | null;
 
 export interface ActivityLine {
   text: string;
@@ -80,6 +80,18 @@ export function describeActivity(row: ActivityRow, myUserId: string, myDisplayNa
         target: { type: "members" },
       };
     }
+    case "room_opened": {
+      const code = str(p.code);
+      return { text: `${who} opened a Split Room${str(p.name) ? `: ${str(p.name)}` : ""}`, amount: null, target: code ? { type: "room", code } : null };
+    }
+    case "room_finalized": {
+      const base = str(p.base_currency);
+      const roomAmount = base && isCurrencyCode(base) && amountValue !== null && Number.isFinite(amountValue) ? { value: amountValue, currency: base } : null;
+      const expenseId = str(p.expense_id);
+      return { text: `${who} finalized ${str(p.name) ?? "a Split Room"}`, amount: roomAmount, target: expenseId ? { type: "expense", id: expenseId } : null };
+    }
+    case "room_cancelled":
+      return { text: `${who} closed ${str(p.name) ?? "a Split Room"}`, amount: null, target: null };
     default:
       return { text: `${who} made a change`, amount: null, target: null };
   }
@@ -87,5 +99,5 @@ export function describeActivity(row: ActivityRow, myUserId: string, myDisplayNa
 
 /** Pill wording for a live event: same sentence, with "just" for immediacy where it reads well. */
 export function pillText(line: ActivityLine): string {
-  return line.text.replace(/^(\S+) (added|paid|settled|joined|edited|deleted|confirmed|disputed)\b/, "$1 just $2");
+  return line.text.replace(/^(\S+) (added|paid|settled|joined|edited|deleted|confirmed|disputed|opened|finalized)\b/, "$1 just $2");
 }

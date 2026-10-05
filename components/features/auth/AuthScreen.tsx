@@ -4,7 +4,7 @@ import { Title } from "@/components/ui";
 
 /** Shared layout for /login and /signup. */
 export function AuthScreen({ mode, next, error }: { mode: AuthMode; next: string; error?: string }) {
-  const joining = next.startsWith("/join/");
+  const joining = next.startsWith("/join/") || next.startsWith("/room/");
   const other = mode === "signin" ? "/signup" : "/login";
   const keepNext = next !== "/groups" ? `?next=${encodeURIComponent(next)}` : "";
 

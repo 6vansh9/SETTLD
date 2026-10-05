@@ -189,3 +189,58 @@
   - `/api/og/receipt/[settlementId]?size=story|chat` (1080×1920 / 1200×630): it needs a session (401) and RLS limits it to group members (404 otherwise). It shows payer → receiver in Anton, the amount in Jersey 10 with faded symbol and decimals, the group and date as micro labels, and the SETTLD ✓ stamp. Cache-Control is private.
   - The settle success screen shows the real receipt image, with "Share to story" (1080×1920) and "Share" (1200×630) buttons. These use `lib/share-image.ts`: Web Share with a PNG File when `navigator.canShare({files})`, otherwise a download.
 - Verified: OG PNGs render at the right sizes, fonts are present in the traced function files, the invite fallback returns 200 and the receipt returns 401 when signed out. Headless at 390px light and dark: graph in both views, tap card, command bar preview, ambiguity picker, the exact `create_expense` payload, and Tab to the full form. Tests: 302 passing.
+
+### Milestone 7b — Split Room ✅ (2026-10-05)
+
+**Decisions (user-approved):** every room belongs to a group. Opening a room link or scanning its QR without being in the group shows the group preview and "Join group & room"; `join_room` reuses `join_group` through the group's live invite link. Signed-out visitors sign in first (middleware) and come back. One payer, chosen at Finalize (defaults to the host).
+
+**Choices made here (PRD silent; easy to change):**
+- Tax, service and tip percentages are all taken on the item subtotal (not compounded), and each is spread over people in proportion to their item subtotal.
+- Anyone can set their own custom shares; the host can set anyone's, ghosts included (that's how the host assigns ghosts).
+- Finalized expenses use category Food, today's date, and exact splits; people whose total rounds to 0 are left out.
+
+- **SQL, `supabase/migrations/0007_split_rooms.sql`** (idempotent):
+  - **Tables:** `split_rooms` (charges as kind + value: basis points or minor units; status open/finalized/cancelled/expired; `expires_at` = created + 12 h; `paid_by`, `expense_id`), `split_room_items` (soft delete, position), `split_room_claims` (`shares` 0–99; 0 = un-claimed, never hard-deleted, so Realtime sees un-taps).
+  - **Codes:** 6 characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, drawn from `gen_random_uuid` bytes. A partial unique index keeps them unique among open rooms, and `create_room` marks rooms past their 12 hours expired so codes get reused.
+  - **RLS:** select-only for members of the room's group; every write goes through RPCs.
+  - **RPCs:**
+    - `create_room` / `cancel_room`
+    - `room_preview` (anon OK; ids only for members)
+    - `join_room`
+    - `upsert_items` (host; client ids; `p_items` null = charges/name only)
+    - `toggle_claim(item, p_on)` (explicit on/off, so retries are safe)
+    - `set_claim_shares` / `assign_claim`
+    - `finalize_room`: host, refuses unclaimed or expired rooms, computes `room_totals`, calls `create_expense` (same validation), logs `room_finalized`, closes the room, all in one transaction; idempotent on retry
+  - **Realtime:** the three tables are published. The `realtime.messages` policies now also authorize `room:<CODE>` for members of the room's group.
+  - **Maths:** `room_allocate` (largest remainder) and `room_totals` mirror `lib/splitRoom.ts`.
+- **PGlite** (63 checks):
+  - codes and uniqueness, RLS and anon preview
+  - host-only edits, claims and shares, ghost assignment
+  - join by code adds the member, room channel authorization
+  - finalize refusals, the expense, splits and activity; retry-safe finalize
+  - expiry, cancel
+  - 60 random rooms where the SQL splits equal the TS splits exactly
+  - Earlier suites pass (test0006's publication list updated).
+- **Maths (`lib/splitRoom.ts`, tested first):** `allocate` (largest remainder, BigInt), `chargeAmount`, `computeBill` (unclaimed items keep their own slice of each charge, so your share doesn't jump as others claim), `finalSplits`, `finalizeBlocker` ("2 items unclaimed"), and code/percent parsing. A property test runs 2,000 random rooms: totals sum to the bill, every item and charge allocates exactly, and splits sum to the expense.
+- **Client:**
+  - **Data and hooks:** `lib/split-room-data.ts` (fetch by code, open rooms, `withClaim`, `roomState`); `lib/queries/rooms.ts`.
+    - Optimistic updates are synchronous; writes reach the server in tap order through a per-room queue. TanStack's mutation `scope` held back queued optimistic updates, which the headless run caught.
+    - Realtime refetches wait while a write is in flight.
+  - **Realtime:** `lib/realtime/useRoomRealtime.ts` uses the private `room:<CODE>` channel (postgres_changes on the room, its items and its claims, plus presence for "in the room") and falls back to a data-only channel. The group channel also watches `split_rooms` for the banner. Activity: `room_opened` (taps open the room), `room_finalized` (taps open the expense), `room_cancelled`.
+- **UI** (`components/features/split-room/`, `app/room/[code]`):
+  - **Group screen:** "New Split Room" button and a "Split Room open · Join" banner.
+  - **Room screen:** pastel header with the name, the running total and its charges breakdown, a QR with the code, Copy link and Share, and "In the room" avatars (a dot means here now).
+  - **Item cards:** tap toggles you; long-press (450 ms) opens custom shares; unclaimed cards glow (static under reduced motion).
+  - **Sticky footer:** MY TOTAL plus a breakdown sheet. The host also gets Finalize, disabled with a reason; Finalize asks who paid.
+  - **Host editor:** the Add button prevents focus moving on pointer-down, so the phone keyboard stays up between items. Tap an item to edit it; tax, service and tip can each be % or an amount.
+  - **End states:** finalized shows the summary card on every phone (stamp, everyone's totals, "You owe X", Open the expense). Expired, closed, missing and not-member each get a clear screen.
+- **Verified:**
+  - **Headless at 390px** against a stateful fake server (24 checks):
+    - building the 10-item bill: focus kept after each Add; 18% tax and 10% tip saved
+    - taps: optimistic before the server answers; rapid on/off/on ends in sync
+    - long-press: custom shares, ghost assigned by the host, a guest only gets their own stepper
+    - others' claims arrive via refetch
+    - finalizing with another payer: splits sum exactly; both phones show the summary
+    - join screen and the expired screen
+  - **Tests:** 320 passing.
+- **Not verified here:** real Realtime across devices and the live migration (run `0007_split_rooms.sql` in the Supabase SQL Editor first).

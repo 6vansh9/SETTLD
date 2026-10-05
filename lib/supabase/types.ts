@@ -255,6 +255,53 @@ export interface Database {
           },
         ];
       };
+      split_rooms: {
+        Row: {
+          id: string;
+          code: string;
+          group_id: string;
+          name: string;
+          host_member: string;
+          tax_kind: ChargeKind;
+          tax_value: number;
+          service_kind: ChargeKind;
+          service_value: number;
+          tip_kind: ChargeKind;
+          tip_value: number;
+          status: RoomStatus;
+          paid_by: string | null;
+          expense_id: string | null;
+          created_at: string;
+          expires_at: string;
+          closed_at: string | null;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      split_room_items: {
+        Row: {
+          id: string;
+          room_id: string;
+          name: string;
+          price: number;
+          qty: number;
+          position: number;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      split_room_claims: {
+        Row: { room_id: string; item_id: string; member_id: string; shares: number; updated_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: {
       group_balances: {
@@ -346,10 +393,40 @@ export interface Database {
       restore_settlement: { Args: { p_settlement_id: string }; Returns: undefined };
       delete_expense: { Args: { p_expense_id: string }; Returns: undefined };
       restore_expense: { Args: { p_expense_id: string }; Returns: undefined };
+      create_room: { Args: { p_group_id: string; p_name: string }; Returns: { id: string; code: string } };
+      room_preview: { Args: { p_code: string }; Returns: RoomPreview[] };
+      join_room: { Args: { p_code: string }; Returns: { room_id: string; group_id: string; code: string } };
+      upsert_items: {
+        Args: { p_room_id: string; p_items: Json | null; p_charges?: Json | null; p_name?: string | null };
+        Returns: undefined;
+      };
+      toggle_claim: { Args: { p_item_id: string; p_on?: boolean | null }; Returns: number };
+      set_claim_shares: { Args: { p_item_id: string; p_shares: number; p_member_id?: string | null }; Returns: undefined };
+      assign_claim: { Args: { p_item_id: string; p_member_id: string; p_on?: boolean | null }; Returns: number };
+      finalize_room: { Args: { p_room_id: string; p_payer?: string | null; p_client_id?: string | null }; Returns: string };
+      cancel_room: { Args: { p_room_id: string }; Returns: undefined };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
+}
+
+export type ChargeKind = "percent" | "amount";
+export type RoomStatus = "open" | "finalized" | "cancelled" | "expired";
+
+/** room_preview(): basics by code (ids only for members). */
+export interface RoomPreview {
+  room_id: string | null;
+  room_name: string;
+  status: RoomStatus;
+  expired: boolean;
+  group_id: string | null;
+  group_name: string;
+  emoji: string;
+  color: Pastel;
+  member_count: number;
+  is_member: boolean;
+  host_name: string | null;
 }
 
 /** Shape of invite_details() (jsonb). */
@@ -369,3 +446,6 @@ export type Invite = Database["public"]["Tables"]["invites"]["Row"];
 export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 export type GroupBalance = Database["public"]["Views"]["group_balances"]["Row"];
 export type Settlement = Database["public"]["Tables"]["settlements"]["Row"];
+export type SplitRoom = Database["public"]["Tables"]["split_rooms"]["Row"];
+export type SplitRoomItem = Database["public"]["Tables"]["split_room_items"]["Row"];
+export type SplitRoomClaim = Database["public"]["Tables"]["split_room_claims"]["Row"];

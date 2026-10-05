@@ -70,6 +70,7 @@ export function useGroupRealtime(
       if (dirty.has("settlements")) void qc.invalidateQueries({ queryKey: settlementKeys.list(groupId) });
       if (dirty.has("members")) void qc.invalidateQueries({ queryKey: groupKeys.detail(groupId) });
       if (dirty.has("activity")) void qc.invalidateQueries({ queryKey: ["group", groupId, "activity"] });
+      if (dirty.has("rooms")) void qc.invalidateQueries({ queryKey: ["group", groupId, "rooms"] });
       // Any change can move money: always re-read the balances view (and Home's).
       void qc.invalidateQueries({ queryKey: expenseKeys.balances(groupId) });
       void qc.invalidateQueries({ queryKey: expenseKeys.allBalances });
@@ -84,7 +85,7 @@ export function useGroupRealtime(
       const now = Date.now();
       if (now - lastRefetch < FOCUS_REFETCH_MIN_MS) return;
       lastRefetch = now;
-      ["expenses", "settlements", "members", "activity"].forEach(mark);
+      ["expenses", "settlements", "members", "activity", "rooms"].forEach(mark);
     };
 
     const handle = (table: string, what: string) => (payload: RealtimePostgresChangesPayload<Row>) => {
@@ -116,7 +117,8 @@ export function useGroupRealtime(
       ch.on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter }, handle("expenses", "expenses"))
         .on("postgres_changes", { event: "*", schema: "public", table: "settlements", filter }, handle("settlements", "settlements"))
         .on("postgres_changes", { event: "*", schema: "public", table: "group_members", filter }, handle("group_members", "members"))
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity", filter }, handle("activity", "activity"));
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity", filter }, handle("activity", "activity"))
+        .on("postgres_changes", { event: "*", schema: "public", table: "split_rooms", filter }, handle("split_rooms", "rooms"));
       if (isPrivate) {
         ch.on("presence", { event: "sync" }, () => setPresence(Object.values(ch.presenceState<PresenceState>()).flat()));
       }

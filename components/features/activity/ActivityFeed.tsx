@@ -54,6 +54,7 @@ export function ActivityFeed({
             myDisplayName={myDisplayName}
             showGroup
             onOpen={(row, target) => {
+              if (target?.type === "room") return router.push(`/room/${target.code}`);
               const open = !target ? "" : target.type === "members" ? "members" : `${target.type}:${target.id}`;
               router.push(`/g/${row.group_id}${open ? `?open=${encodeURIComponent(open)}` : "?tab=activity"}`);
             }}

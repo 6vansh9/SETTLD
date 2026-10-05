@@ -3,7 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Plus, Settings2, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityList } from "@/components/features/activity/ActivityList";
 import { DebtGraph } from "@/components/features/debt-graph/DebtGraph";
@@ -15,6 +15,7 @@ import { ExpenseDetailSheet } from "@/components/features/expense/ExpenseDetailS
 import { ExpenseEditor } from "@/components/features/expense/ExpenseEditor";
 import { ExpenseList } from "@/components/features/expense/ExpenseList";
 import { SettleSheet } from "@/components/features/settle/SettleSheet";
+import { NewRoomButton, RoomBanner } from "@/components/features/split-room/RoomEntry";
 import { SettlementSheet } from "@/components/features/settle/SettlementSheet";
 import { AnimatedAmount, Avatar, Button, Confetti, PresencePill, SplitBar } from "@/components/ui";
 import { describeActivity, pillText, type ActivityRow, type ActivityTarget } from "@/lib/activity";
@@ -68,6 +69,7 @@ export function GroupScreen({
   myUserId: string;
 }) {
   const { show } = useToast();
+  const router = useRouter();
   const commandBar = useCommandBar();
   const { data: group } = useGroup(initialGroup.id, initialGroup);
   const { data: expenses = initialExpenses } = useExpenses(initialGroup.id, initialExpenses);
@@ -103,6 +105,7 @@ export function GroupScreen({
     (target: ActivityTarget) => {
       if (!target) return;
       if (target.type === "members") return setSheet("members");
+      if (target.type === "room") return router.push(`/room/${target.code}`);
       const list = target.type === "expense" ? latest.current.expenses : latest.current.settlements;
       if (!list.some((x) => x.id === target.id)) {
         show({ message: target.type === "expense" ? "That expense was deleted." : "That payment was deleted." });
@@ -112,7 +115,7 @@ export function GroupScreen({
       if (target.type === "expense") setDetailId(target.id);
       else setSettlementId(target.id);
     },
-    [show],
+    [show, router],
   );
 
   const params = useSearchParams();
@@ -316,6 +319,9 @@ export function GroupScreen({
           Reconnecting… changes will catch up
         </p>
       )}
+
+      <RoomBanner groupId={g.id} />
+      {!archived && <NewRoomButton groupId={g.id} />}
 
       {archived && (
         <p className="mx-5 mt-4 rounded-2xl bg-ink/5 px-4 py-3 text-[14px] font-medium text-ink/70">
