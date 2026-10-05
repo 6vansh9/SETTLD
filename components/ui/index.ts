@@ -15,3 +15,4 @@ export { Toast, type ToastData } from "./Toast";
 export { Title, type TitleProps } from "./Title";
 export { EmptyState } from "./EmptyState";
 export { SkeletonCard, SkeletonScreen } from "./Skeleton";
+export { Logo } from "./Logo";

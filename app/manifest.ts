@@ -10,11 +10,13 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     background_color: "#F4F1EC",
-    theme_color: "#F4F1EC",
+    theme_color: "#EE6A4B",
+    // Generated from public/brand/settld-icon-pixel.svg by scripts/build-icons.mjs.
     icons: [
-      { src: "/pwa-icon/192", sizes: "192x192", type: "image/png" },
-      { src: "/pwa-icon/512", sizes: "512x512", type: "image/png" },
-      { src: "/pwa-icon/maskable-512", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/brand/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/brand/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/brand/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/brand/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
     ],
   };
 }

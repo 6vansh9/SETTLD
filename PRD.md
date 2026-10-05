@@ -419,6 +419,7 @@ supabase/
 - iOS Safari does not support the Vibration API, so no haptics. Use visual and motion feedback instead.
 - Push notifications on iOS work only after the user adds Settld to the Home Screen (iOS 16.4+). Onboarding must show an animated Add to Home Screen guide, and the app should re-prompt gently after the first expense.
 - Set `display: standalone`, theme color per light/dark, and splash images for iPhone sizes.
+- App icon: `public/brand/settld-icon-pixel.svg` (pixel S, faded echo, white tick stamp on coral). `scripts/build-icons.mjs` generates favicon.ico (16 without stamp/echo, 32, 48), icon.svg, a full-bleed apple-touch-icon (180), icon-192/512 (rounded, "any"), a full-bleed maskable 512 with the artwork scaled into the 80% safe zone, and a white-S notification badge. Manifest: name "Settld", theme #EE6A4B, background #F4F1EC. The icon sits next to SETTLD on the landing page and sign-in screens.
 - Handle safe areas with `env(safe-area-inset-*)` so the coral footer clears the home indicator.
 - UPI deep links open external apps; detect return via `visibilitychange` to ask "Did the payment go through?"
 

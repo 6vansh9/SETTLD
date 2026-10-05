@@ -30,7 +30,14 @@ export const metadata: Metadata = {
   description: "Split it. Settle it. Shared expenses, live.",
   // Home Screen app on iPhone (standalone), which is also what enables Web Push there.
   appleWebApp: { capable: true, title: "Settld", statusBarStyle: "default" },
-  icons: { apple: [{ url: "/pwa-icon/180", sizes: "180x180" }] },
+  // Generated from public/brand/settld-icon-pixel.svg by scripts/build-icons.mjs.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+      { url: "/brand/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180" }],
+  },
 };
 
 export const viewport: Viewport = {

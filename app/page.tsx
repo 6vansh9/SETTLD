@@ -1,3 +1,4 @@
+import { Logo } from "@/components/ui";
 import { ArrowRight, Globe2, QrCode, Smartphone, SplitSquareHorizontal } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -21,7 +22,7 @@ export default async function Home() {
   return (
     <main className="mx-auto w-full max-w-app overflow-x-clip px-5 pb-[calc(32px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
       <header className="flex h-11 items-center justify-between">
-        <span className="font-display text-[22px] uppercase leading-none">Settld</span>
+        <Logo size={30} textClassName="text-[22px]" />
         <Link
           href="/login"
           className="flex h-10 items-center rounded-full border-[1.5px] border-ink/15 px-4 text-[14px] font-semibold hover:bg-ink/5"

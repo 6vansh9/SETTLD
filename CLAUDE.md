@@ -402,3 +402,20 @@
   - the welcome card numbers and See the expenses;
   - the one-time prompt and Later.
 - Tests: 364 passing.
+
+### App icon from settld-icon-pixel.svg (2026-10-05, user request; PRD updated)
+
+- **Source:** moved to `public/brand/settld-icon-pixel.svg`.
+- **Generator:** `node scripts/build-icons.mjs` (sharp) writes `public/brand/` and `public/favicon.ico`. It fails loudly if the SVG's structure changes. Outputs:
+  - `icon.svg`: the C2PA metadata is stripped.
+  - `favicon.ico`: PNG-in-ICO at 16/32/48. The 16px version drops the tick stamp and the faded echo (both muddy at that size); 32 and 48 keep everything.
+  - `apple-touch-icon.png` (180) and `icon-maskable-512.png`: full-bleed and flattened on coral (no rounded corners or transparency, so no black corners on iPhone). The maskable version scales the artwork 0.78× about the centre, which puts its farthest pixel 191 px from the centre, inside the 205 px safe zone (measured).
+  - `icon-192/512.png`: the rounded original.
+  - `badge-96.png`: white S on transparent, for Android notifications.
+- **Wiring:**
+  - `app/layout.tsx` metadata: icons (favicon.ico + icon.svg) and apple.
+  - `app/manifest.ts`: theme `#EE6A4B`, background `#F4F1EC`; any + maskable icons.
+  - `public/sw.js`: notification icon and badge.
+- **Removed:** the old generated `/pwa-icon/[size]` route (and its font tracing).
+- **Logo:** `ui/Logo` (icon + SETTLD wordmark) on the landing header and the auth screens.
+- **Fixed:** the favicon 404.

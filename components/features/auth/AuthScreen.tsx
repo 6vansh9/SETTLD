@@ -1,3 +1,4 @@
+import { Logo } from "@/components/ui";
 import Link from "next/link";
 import { AuthPanel, type AuthMode } from "@/components/features/auth/AuthPanel";
 import { Title } from "@/components/ui";
@@ -19,8 +20,9 @@ export function AuthScreen({ mode, next, error }: { mode: AuthMode; next: string
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-app flex-col px-5 pb-[calc(24px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
       <header className="flex h-11 items-center justify-between">
-        <Link href="/" className="micro">
-          ← Settld
+        <Link href="/" className="flex items-center gap-2" aria-label="Settld home">
+          <span aria-hidden className="text-[16px] text-ink/50">←</span>
+          <Logo size={28} textClassName="text-[20px]" />
         </Link>
         <Link href={`${other}${keepNext}`} className="micro text-ink-faded hover:text-ink">
           {mode === "signin" ? "Create account" : "Sign in"}

@@ -19,8 +19,8 @@ self.addEventListener("push", function (event) {
       body: d.body || "",
       tag: d.tag || undefined,
       renotify: !!d.tag,
-      icon: "/pwa-icon/192",
-      badge: "/pwa-icon/96",
+      icon: "/brand/icon-192.png",
+      badge: "/brand/badge-96.png",
       data: { url: d.url || "/groups" },
     })
   );
