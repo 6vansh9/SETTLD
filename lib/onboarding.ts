@@ -1,4 +1,4 @@
-export const ONBOARDING_STEPS = ["name", "color", "upi", "currency", "home"] as const;
+export const ONBOARDING_STEPS = ["name", "phone", "color", "upi", "currency", "home"] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 export function isOnboardingStep(value: unknown): value is OnboardingStep {

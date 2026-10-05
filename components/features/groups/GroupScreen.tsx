@@ -46,6 +46,7 @@ import type { GroupBalance, Settlement } from "@/lib/supabase/types";
 import { GroupSettingsSheet } from "./GroupSettingsSheet";
 import { COVER_FADED, SCRIM_RAMP_HEADER } from "@/lib/images";
 import { CoverBackdrop, CoverScrim } from "./CoverBackdrop";
+import { WelcomeCard } from "./WelcomeCard";
 import { InviteSheet } from "./InviteSheet";
 import { MembersSheet } from "./MembersSheet";
 
@@ -84,6 +85,8 @@ export function GroupScreen({
   const deleteSettlement = useDeleteSettlement(initialGroup.id);
   const restoreSettlement = useRestoreSettlement(initialGroup.id);
   const [settle, setSettle] = useState<{ prefill: Transfer | null } | null>(null);
+  const [welcome, setWelcome] = useState(false);
+  const listTop = useRef<HTMLElement | null>(null);
   const [settlementId, setSettlementId] = useState<string | null>(null);
   const [busySettlementId, setBusySettlementId] = useState<string | null>(null);
   const [confetti, setConfetti] = useState(0);
@@ -127,6 +130,18 @@ export function GroupScreen({
     const open = params.get("open");
     if (params.get("tab") === "activity") setTab("activity");
     if (params.get("settle") === "1") setSettle({ prefill: null });
+    if (params.get("welcome") === "1") {
+      // One time per group on this device, then drop the flag from the URL.
+      let seen = false;
+      try {
+        seen = localStorage.getItem(`settld-welcome-${initialGroup.id}`) === "1";
+        localStorage.setItem(`settld-welcome-${initialGroup.id}`, "1");
+      } catch {
+        // storage unavailable: show it this once
+      }
+      if (!seen) setWelcome(true);
+      window.history.replaceState(null, "", `/g/${initialGroup.id}`);
+    }
     if (!open) return;
     const [type, id] = open.split(":");
     if (type === "members") openTarget({ type: "members" });
@@ -373,6 +388,22 @@ export function GroupScreen({
         </p>
       )}
 
+      {welcome && (
+        <WelcomeCard
+          groupName={g.name}
+          color={g.color}
+          addedBy={me.added_by ? (g.members.find((m) => m.id === me.added_by)?.display_name ?? null) : null}
+          spent={totalSpent}
+          myNet={myNet}
+          currency={g.base_currency}
+          onClose={() => setWelcome(false)}
+          onSeeExpenses={() => {
+            setWelcome(false);
+            setTab("expenses");
+            requestAnimationFrame(() => listTop.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+          }}
+        />
+      )}
       <RoomBanner groupId={g.id} />
       {!archived && <NewRoomButton groupId={g.id} />}
 
@@ -418,7 +449,7 @@ export function GroupScreen({
       </section>
 
       {/* Tabs */}
-      <div role="tablist" aria-label="Group sections" className="mx-5 mt-8 grid grid-cols-4 border-b-[1.5px] border-ink/10">
+      <div ref={(el) => { listTop.current = el; }} role="tablist" aria-label="Group sections" className="mx-5 mt-8 grid scroll-mt-4 grid-cols-4 border-b-[1.5px] border-ink/10">
         {TABS.map((t) => (
           <button
             key={t.id}

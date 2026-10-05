@@ -15,12 +15,16 @@ import type { CurrencyCode } from "@/lib/money";
 import type { Pastel } from "@/lib/pastels";
 import { nextStep, previousStep, stepHref, stepsFor, type OnboardingStep } from "@/lib/onboarding";
 import { useProfile, useUpdateProfile } from "@/lib/queries/profile";
+import { useSetMyPhone } from "@/lib/queries/phone";
+import { fromE164, toE164 } from "@/lib/phone";
+import { PhoneField, phoneError, type PhoneValue } from "@/components/features/profile/PhoneField";
 import type { Profile, ProfileUpdate } from "@/lib/supabase/types";
 import { isValidUpiId, normalizeUpiId } from "@/lib/upi";
 import { HomeScreenGuide, isStandalone } from "./HomeScreenGuide";
 
 const TITLES: Record<OnboardingStep, [string, string]> = {
   name: ["WHAT DO WE", "CALL YOU?"],
+  phone: ["YOUR", "NUMBER"],
   color: ["PICK YOUR", "COLOR"],
   upi: ["YOUR", "UPI ID"],
   currency: ["DEFAULT", "CURRENCY"],
@@ -37,10 +41,13 @@ const SAVE_ERROR = "Couldn't save. Check your connection and try again.";
 export function OnboardingFlow({
   initialProfile,
   initialStep,
+  initialPhone = null,
   next,
 }: {
   initialProfile: Profile;
   initialStep: OnboardingStep;
+  /** My saved phone, or the one the inviter saved on my ghost spot (prefill, still editable). */
+  initialPhone?: string | null;
   next: string;
 }) {
   const router = useRouter();
@@ -54,6 +61,9 @@ export function OnboardingFlow({
   const { data: liveProfile } = useProfile(initialProfile);
   const photo = liveProfile?.avatar_url ?? null;
   const [upi, setUpi] = useState(initialProfile.upi_id ?? "");
+  const [phone, setPhone] = useState<PhoneValue>(() => fromE164(initialPhone));
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const savePhone = useSetMyPhone();
   const [currency, setCurrency] = useState<CurrencyCode>(initialProfile.default_currency);
   const [error, setError] = useState<string | null>(null);
   const [standalone, setStandalone] = useState(false);
@@ -69,7 +79,7 @@ export function OnboardingFlow({
   const steps = stepsFor(standalone);
   const index = steps.indexOf(step);
   const trimmedName = name.trim();
-  const busy = update.isPending || finishing;
+  const busy = update.isPending || savePhone.isPending || finishing;
 
   const go = (to: OnboardingStep) => {
     setDirection(steps.indexOf(to) > index ? 1 : -1);
@@ -113,6 +123,27 @@ export function OnboardingFlow({
           disabled: trimmedName.length === 0 || busy,
           onClick: () => saveAndAdvance({ name: trimmedName }),
         };
+      case "phone": {
+        const e164 = toE164(phone.national, phone.country);
+        return {
+          label: savePhone.isPending ? "Saving…" : "Next",
+          disabled: busy,
+          onClick: async () => {
+            setPhoneTouched(true);
+            if (!e164) return;
+            setError(null);
+            try {
+              await savePhone.mutateAsync(e164);
+            } catch {
+              setError(SAVE_ERROR);
+              return;
+            }
+            const to = nextStep(step, standalone);
+            if (to) go(to);
+            else await finish();
+          },
+        };
+      }
       case "color":
         return { label: saving("Next"), disabled: busy, onClick: () => saveAndAdvance({ avatar_color: color }) };
       case "upi":
@@ -201,6 +232,27 @@ export function OnboardingFlow({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 hint="Friends see this in groups and on receipts."
+              />
+            </form>
+          )}
+
+          {step === "phone" && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                cta.onClick();
+              }}
+            >
+              <PhoneField
+                label="Phone number"
+                autoFocus
+                value={phone}
+                onChange={(v) => {
+                  setPhone(v);
+                  setError(null);
+                }}
+                error={phoneTouched ? phoneError(phone, true) : null}
+                hint="Private: nobody in your groups ever sees it. It helps friends who add you by number."
               />
             </form>
           )}

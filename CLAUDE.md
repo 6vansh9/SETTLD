@@ -365,3 +365,40 @@
   - desktop "Turn on notifications" vs iPhone Safari Add to Home Screen steps
 - **Webhook:** 401 without or with a wrong secret; the manifest, worker and icons serve. Tests: 354 passing.
 - **Not verified here:** real pushes to devices, and the webhook end to end (needs 0009 and the secrets SQL run in Supabase).
+
+### Phone numbers + phone-based ghost invites ✅ (2026-10-05, user request; PRD updated)
+
+**Decisions (user-approved):** numbers are unverified, so they never grant access or claim a ghost; the personal claim link is the only proof. Numbers are private and live outside `profiles`.
+
+**Choices made here:**
+- **Auto-claim scope:** the automatic claim happens only for someone who just signed up or signed in from that personal link (the join screen's auth links carry `?auto=1`). Someone already signed in who opens a personal link keeps the one-tap "I'm Rahul, join", so a forwarded link can't silently move a signed-in person into a spot.
+- **Ghost phone lifecycle:** the ghost's phone row is deleted when the spot is claimed; it was the inviter's note, not the new member's data.
+- **Prefill:** `claim_link_phone` lets the holder of a live personal link (signed in, not yet in the group) read that ghost's number, for onboarding prefill only.
+- **Unchanged from M3:** the group link's "Already added by name? Tap yours" ghost claim still exists.
+
+- **SQL, `0010_phones.sql`** (idempotent):
+  - **Tables:** `user_phones` (owner-only select), `ghost_phones` (`is_admin` select); no direct writes. `group_members.added_by`.
+  - **RPCs:** `set_my_phone` (null removes), `add_ghost(group, name, phone default null)` (replaces the 2-argument version; records added_by), `set_ghost_phone` (admins, unclaimed ghosts), `claim_link_phone`. `valid_phone` checks E.164 shape.
+  - **Claim + push:** `take_ghost_slot` now deletes the ghost's phone and logs `added_by` in `ghost_claimed`; `notify_push_on_activity` also sends `ghost_claimed`.
+  - **PGlite:** 26 checks:
+    - phone formats, and other members, outsiders and anon can't read numbers;
+    - only admins add ghosts or read ghost numbers;
+    - a user with the ghost's exact number gets no access and has no way to claim;
+    - a brand-new user joins with the personal link → gets the spot, the Villa split and the -₹1,300 balance, the phone row is gone, activity carries added_by, the link can't be reused.
+  - Earlier suites pass (0009: 42, 0007: 63).
+- **Logic:**
+  - `lib/phone.ts` (tested): `toE164` (country picker, own +code wins), `fromE164` (bare national digits), `formatPhone`, `countryOptions` (India first, flags, `Intl.DisplayNames`), `bestE164` for picked contacts, `ghostInviteText`, `whatsappInviteUrl`, `smsInviteUrl(ios)`.
+  - `lib/contacts.ts`: Contact Picker on Android Chrome only.
+  - **Activity:** `ghost_claimed` reads "Rahul joined" (plus "(saved as Zoya)" when the names differ).
+  - **Push:** `push-messages` sends `ghost_claimed` to `added_by`, or to the admins for older ghosts: "Rahul joined Goa Trip".
+- **UI:**
+  - **Phone entry:** `PhoneField` (native country select under a flag + dial display), the onboarding "phone" step (required, step 2, prefilled from my saved number or the ghost's), `PhoneSheet` on /me (private row), and `PhonePrompt` on /groups (one time, "Later" stored as `settld-phone-later`).
+  - **Members sheet:** Add someone gets name + optional phone, plus "Pick from contacts" only where supported. After saving, and from "Send invite" on each unclaimed ghost, `SendInvitePanel` offers WhatsApp, SMS, Copy message, and adding a number if there isn't one.
+  - **Join:** join page auto-claim → `/g/<id>?welcome=1`. `WelcomeCard` shows once per group per device: who added you, spent so far, your balance, See the expenses.
+- **Verified:** 17 headless checks at 390px:
+  - onboarding: the required and invalid-number messages, saving +91 and US numbers in E.164, the prefill;
+  - add someone + invite on iPhone: no contact picker, the add_ghost payload, the exact wa.me and iOS sms: links with the personal link, Zoya's saved number;
+  - Android contact picker fills name + number;
+  - the welcome card numbers and See the expenses;
+  - the one-time prompt and Later.
+- Tests: 364 passing.

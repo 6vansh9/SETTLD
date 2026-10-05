@@ -73,12 +73,10 @@ export function describeActivity(row: ActivityRow, myUserId: string, myDisplayNa
     case "member_removed":
       return { text: `${who} removed ${first(str(p.name) ?? "someone")}`, amount: null, target: { type: "members" } };
     case "ghost_claimed": {
+      // "Rahul joined" (they took the spot someone saved for them; it keeps its history).
       const ghost = str(p.ghost_name);
-      return {
-        text: ghost ? `${first(ghost)} was claimed by ${actorIsMe ? "you" : who}` : `${who} claimed a spot`,
-        amount: null,
-        target: { type: "members" },
-      };
+      const saved = ghost && first(ghost).toLowerCase() !== first(row.actor?.display_name ?? "").toLowerCase() ? ` (saved as ${first(ghost)})` : "";
+      return { text: `${actorIsMe ? "You" : who} joined${saved}`, amount: null, target: { type: "members" } };
     }
     case "room_opened": {
       const code = str(p.code);

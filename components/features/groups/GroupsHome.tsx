@@ -1,5 +1,6 @@
 "use client";
 
+import { PhonePrompt } from "@/components/features/profile/PhonePrompt";
 import { useNudgeBanner } from "@/components/features/social/useNudgeBanner";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -176,6 +177,7 @@ export function GroupsHome({
         </>
       )}
 
+      <PhonePrompt />
       <BottomTabBar />
       <CreateGroupSheet open={creating} onClose={() => setCreating(false)} defaultCurrency={me.default_currency} />
     </main>

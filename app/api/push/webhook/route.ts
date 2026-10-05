@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
   const [{ data: group }, { data: members }] = await Promise.all([
     admin.from("groups").select("id, name, emoji, base_currency").eq("id", a.group_id).maybeSingle(),
-    admin.from("group_members").select("id, user_id, display_name, notify_level, left_at").eq("group_id", a.group_id),
+    admin.from("group_members").select("id, user_id, display_name, notify_level, left_at, role").eq("group_id", a.group_id),
   ]);
   if (!group || !members || !isCurrencyCode(group.base_currency)) return NextResponse.json({ skipped: true });
 

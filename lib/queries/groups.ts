@@ -90,9 +90,14 @@ export function useSetArchived(groupId: string) {
 
 export function useAddGhost(groupId: string) {
   const invalidate = useInvalidateGroup();
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => rpc(createClient().rpc("add_ghost", { p_group_id: groupId, p_name: name.trim() })),
-    onSuccess: () => invalidate(groupId),
+    mutationFn: (v: { name: string; phone?: string | null }) =>
+      rpc(createClient().rpc("add_ghost", { p_group_id: groupId, p_name: v.name.trim(), p_phone: v.phone ?? null })),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["group", groupId, "ghost-phones"] });
+      return invalidate(groupId);
+    },
   });
 }
 

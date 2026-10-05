@@ -14,17 +14,21 @@ import { isValidUpiId, normalizeUpiId } from "@/lib/upi";
 import { BottomTabBar } from "@/components/features/nav/BottomTabBar";
 import { NotificationsCard } from "@/components/features/push/NotificationsCard";
 import { ProfilePhotoControls } from "@/components/features/photos/ProfilePhoto";
+import { formatPhone } from "@/lib/phone";
+import { useMyPhone } from "@/lib/queries/phone";
 import { ColorPicker } from "./ColorPicker";
+import { PhoneSheet } from "./PhoneSheet";
 import { CurrencyPicker } from "./CurrencyPicker";
 import { TextField } from "./TextField";
 
-type Editing = "name" | "color" | "upi" | "currency" | null;
+type Editing = "name" | "color" | "upi" | "currency" | "phone" | null;
 
 export function ProfileScreen({ initialProfile, email }: { initialProfile: Profile; email: string }) {
   const queryClient = useQueryClient();
   const { data } = useProfile(initialProfile);
   const profile = data ?? initialProfile;
   const update = useUpdateProfile();
+  const { data: phone = null } = useMyPhone();
   const [editing, setEditing] = useState<Editing>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -77,6 +81,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
       <Group label="You">
         <Row label="Name" value={profile.name} onClick={() => setEditing("name")} />
         <Row label="Email" value={email} />
+        <Row label="Phone" value={phone ? formatPhone(phone) : "Add your number"} faded={!phone} onClick={() => setEditing("phone")} />
         <Row
           label="UPI ID"
           value={profile.upi_id ?? "Add for 1-tap payback"}
@@ -140,6 +145,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
         onClose={() => setEditing(null)}
         onSave={(avatar_color) => save({ avatar_color })}
       />
+      <PhoneSheet open={editing === "phone"} onClose={() => setEditing(null)} current={phone} />
       <UpiSheet
         open={editing === "upi"}
         initial={profile.upi_id ?? ""}

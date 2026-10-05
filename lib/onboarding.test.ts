@@ -3,17 +3,17 @@ import { ONBOARDING_STEPS, nextStep, previousStep, startStep, stepHref, stepsFor
 
 describe("onboarding steps", () => {
   it("has the 5 PRD steps in order", () => {
-    expect(ONBOARDING_STEPS).toEqual(["name", "color", "upi", "currency", "home"]);
+    expect(ONBOARDING_STEPS).toEqual(["name", "phone", "color", "upi", "currency", "home"]);
   });
 
   it("walks every step in order, then finishes", () => {
     const visited = [];
     for (let s: (typeof ONBOARDING_STEPS)[number] | null = "name"; s; s = nextStep(s, false)) visited.push(s);
-    expect(visited).toEqual(["name", "color", "upi", "currency", "home"]);
+    expect(visited).toEqual(["name", "phone", "color", "upi", "currency", "home"]);
   });
 
   it("finishes after currency when installed (no home-screen guide)", () => {
-    expect(stepsFor(true)).toEqual(["name", "color", "upi", "currency"]);
+    expect(stepsFor(true)).toEqual(["name", "phone", "color", "upi", "currency"]);
     expect(nextStep("currency", true)).toBeNull();
     expect(nextStep("currency", false)).toBe("home");
   });

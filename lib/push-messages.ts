@@ -9,6 +9,7 @@ import { nudgeText } from "@/lib/nudges";
  *  • settlement_confirmed / _disputed → whoever paid, "money"
  *  • comment_added        → everyone in that expense / payment, "all" only
  *  • nudge_sent           → the person nudged, "money"
+ *  • ghost_claimed        → whoever added that ghost (else the admins): "Rahul joined Goa Trip"
  * Never the actor (nor anyone signed in as the actor), never ghosts or people who left, and each
  * member's group setting: all / money (money kinds only) / off.
  */
@@ -21,6 +22,7 @@ export interface PushMember {
   display_name: string;
   notify_level: NotifyLevel;
   left_at: string | null;
+  role?: string;
 }
 
 export interface PushContext {
@@ -50,7 +52,7 @@ export interface PushMessage {
   tag: string;
 }
 
-export const PUSH_KINDS = ["expense_created", "settlement_recorded", "settlement_confirmed", "settlement_disputed", "comment_added", "nudge_sent"] as const;
+export const PUSH_KINDS = ["expense_created", "settlement_recorded", "settlement_confirmed", "settlement_disputed", "comment_added", "nudge_sent", "ghost_claimed"] as const;
 const MONEY_KINDS = new Set(["expense_created", "settlement_recorded", "settlement_confirmed", "settlement_disputed", "nudge_sent"]);
 
 const first = (n: string) => n.trim().split(/\s+/)[0] || n;
@@ -136,6 +138,13 @@ export function pushMessages(a: ActivityRecord, ctx: PushContext): PushMessage[]
         days: num(a.payload.days) || 0,
       });
       targets = [[to, text, `${groupUrl}?settle=1`]];
+      break;
+    }
+    case "ghost_claimed": {
+      const addedBy = str(a.payload.added_by);
+      const admins = ctx.members.filter((m) => m.role === "admin" && !m.left_at).map((m) => m.id);
+      const to = addedBy && byId.has(addedBy) ? [addedBy] : admins;
+      targets = to.map((m) => [m, `${who} joined ${ctx.group.name}`, open("members")]);
       break;
     }
     default:

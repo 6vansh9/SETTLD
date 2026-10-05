@@ -6,6 +6,7 @@ import { JoinScreen, type InvitePreview } from "@/components/features/join/JoinS
 import { getUserAndProfile } from "@/lib/auth";
 import { PASTEL_HEX } from "@/lib/pastels";
 import { requestOrigin } from "@/lib/request-origin";
+import { friendlyError } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 
 type Params = { params: { token: string } };
@@ -49,8 +50,12 @@ export async function generateViewport({ params }: Params): Promise<Viewport> {
   return preview ? { themeColor: PASTEL_HEX[preview.color] } : {};
 }
 
-export default async function JoinPage({ params }: Params) {
+export default async function JoinPage({ params, searchParams }: Params & { searchParams: { auto?: string } }) {
   const { token } = params;
+  // Set on the sign-up / sign-in links from this screen: someone who just made an account from a
+  // personal claim link takes their spot without another tap.
+  const auto = searchParams.auto === "1";
+  const here = `/join/${token}${auto ? "?auto=1" : ""}`;
   const preview = await getPreview(token);
   if (!preview) return <ExpiredInvite />;
 
@@ -58,13 +63,22 @@ export default async function JoinPage({ params }: Params) {
   if (!user) return <JoinScreen token={token} preview={preview} details={null} />;
 
   // Signed in but not onboarded: finish onboarding, then come back here.
-  if (!profile?.onboarded_at) redirect(`/onboarding?next=${encodeURIComponent(`/join/${token}`)}`);
+  if (!profile?.onboarded_at) redirect(`/onboarding?next=${encodeURIComponent(here)}`);
 
   const { data: details } = await createClient().rpc("invite_details", { p_token: token });
   if (!details) return <ExpiredInvite />;
   if (details.member_group_id) redirect(`/g/${details.member_group_id}`);
 
-  return <JoinScreen token={token} preview={preview} details={details} />;
+  // Personal claim link + fresh account: claim the spot now (the link is the proof; a phone number
+  // never is). join_group takes the ghost's spot for personal links.
+  let autoError: string | null = null;
+  if (auto && details.claim) {
+    const { data: groupId, error } = await createClient().rpc("join_group", { p_token: token });
+    if (!error && groupId) redirect(`/g/${groupId}?welcome=1`);
+    autoError = error ? friendlyError(error) : "Couldn't join just now. Try again.";
+  }
+
+  return <JoinScreen token={token} preview={preview} details={details} initialError={autoError} />;
 }
 
 function ExpiredInvite() {

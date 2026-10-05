@@ -65,4 +65,12 @@ describe("push recipients and text", () => {
     expect(pushMessages(act("member_joined", "mA"), ctx())).toEqual([]);
     expect(pushMessages(act("expense_created", "mV"), ctx({ expense: null }))).toEqual([]);
   });
+
+  it("ghost claimed: whoever added them, else the admins", () => {
+    const a = act("ghost_claimed", "mZ", { ghost_name: "Zoya", added_by: "mV" }, "mZ");
+    const claimed = ctx({ members: members.map((x) => (x.id === "mZ" ? { ...x, user_id: "uZ", display_name: "Zoya Khan" } : x)) });
+    expect(pushMessages(a, claimed)).toEqual([{ userId: "uV", title: "🏝️ Goa", body: "Zoya joined Goa", url: "/g/g1?open=members", tag: "ghost_claimed:mZ" }]);
+    const noAdder = ctx({ members: claimed.members.map((x) => (x.id === "mA" ? { ...x, role: "admin" } : x)) });
+    expect(users(pushMessages(act("ghost_claimed", "mZ", { ghost_name: "Zoya" }, "mZ"), noAdder))).toEqual(["uA"]);
+  });
 });

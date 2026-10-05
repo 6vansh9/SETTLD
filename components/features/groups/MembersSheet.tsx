@@ -1,15 +1,19 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Link2, UserMinus, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { Contact, Send, UserMinus, UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { PhoneField, phoneError, type PhoneValue } from "@/components/features/profile/PhoneField";
+import { pickContact, supportsContactPicker } from "@/lib/contacts";
+import { bestE164, fromE164, toE164 } from "@/lib/phone";
+import { useGhostPhones } from "@/lib/queries/phone";
+import { SendInvitePanel } from "./GhostInvite";
 import { TextField } from "@/components/features/profile/TextField";
 import { Avatar, Button, Sheet } from "@/components/ui";
-import { claimShareText, friendlyError, inviteUrl, validateName } from "@/lib/groups";
+import { friendlyError, validateName } from "@/lib/groups";
 import { activeMembers, memberAvatar, type GroupWithMembers, type MemberWithProfile } from "@/lib/groups-data";
 import { fade, spring } from "@/lib/motion";
-import { useAddGhost, useGhostClaimLink, useRemoveMember } from "@/lib/queries/groups";
-import { shareOrCopy } from "@/lib/share";
+import { useAddGhost, useRemoveMember } from "@/lib/queries/groups";
 
 export function MembersSheet({
   open,
@@ -35,6 +39,7 @@ function MembersBody({ group, myUserId, isAdmin }: { group: GroupWithMembers; my
   const reduce = useReducedMotion();
   const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
   const editable = isAdmin && !group.archived_at;
+  const { data: phones } = useGhostPhones(group.id, editable);
 
   return (
     <div>
@@ -53,6 +58,7 @@ function MembersBody({ group, myUserId, isAdmin }: { group: GroupWithMembers; my
                 group={group}
                 isMe={m.user_id === myUserId}
                 editable={editable}
+                phone={phones?.get(m.id) ?? null}
                 onStatus={setStatus}
               />
             </motion.li>
@@ -66,7 +72,7 @@ function MembersBody({ group, myUserId, isAdmin }: { group: GroupWithMembers; my
         </p>
       )}
 
-      {editable && <AddGhostForm groupId={group.id} onStatus={setStatus} />}
+      {editable && <AddGhostForm group={group} onStatus={setStatus} />}
 
       {!isAdmin && (
         <p className="mt-6 text-center text-[13px] font-medium text-ink/50">Only admins can add or remove people.</p>
@@ -86,33 +92,19 @@ function MemberRow({
   group,
   isMe,
   editable,
+  phone,
   onStatus,
 }: {
   member: MemberWithProfile;
   group: GroupWithMembers;
   isMe: boolean;
   editable: boolean;
+  phone: string | null;
   onStatus: (s: { text: string; error?: boolean } | null) => void;
 }) {
   const remove = useRemoveMember(group.id);
-  const claimLink = useGhostClaimLink();
   const [confirming, setConfirming] = useState(false);
-
-  const shareClaim = async () => {
-    onStatus(null);
-    try {
-      const token = await claimLink.mutateAsync(member.id);
-      const url = inviteUrl(window.location.origin, token);
-      const result = await shareOrCopy({
-        title: `Your spot in ${group.name}`,
-        text: claimShareText(member.display_name, group.name, url),
-        url,
-      });
-      if (result === "copied") onStatus({ text: `Claim link for ${member.display_name} copied` });
-    } catch (err) {
-      onStatus({ text: friendlyError(err), error: true });
-    }
-  };
+  const [inviting, setInviting] = useState(false);
 
   const doRemove = async () => {
     onStatus(null);
@@ -125,6 +117,7 @@ function MemberRow({
   };
 
   return (
+    <div>
     <div className="flex min-h-16 items-center gap-3 py-2">
       <Avatar {...memberAvatar(member)} size="md" />
       <div className="min-w-0 flex-1">
@@ -155,9 +148,17 @@ function MemberRow({
         editable && (
           <div className="flex items-center">
             {member.is_ghost && (
-              <IconButton label={`Share claim link for ${member.display_name}`} onClick={shareClaim} busy={claimLink.isPending}>
-                <Link2 className="size-[18px]" />
-              </IconButton>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setInviting((v) => !v)}
+                  aria-expanded={inviting}
+                  className="mr-1 flex h-9 items-center gap-1.5 rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-semibold"
+                >
+                  <Send className="size-4" />
+                  Send invite
+                </button>
+              </>
             )}
             {!isMe && (
               <IconButton label={`Remove ${member.display_name}`} onClick={() => setConfirming(true)}>
@@ -167,6 +168,12 @@ function MemberRow({
           </div>
         )
       )}
+    </div>
+    {inviting && member.is_ghost && editable && (
+      <div className="pb-3">
+        <SendInvitePanel group={group} memberId={member.id} name={member.display_name} phone={phone} />
+      </div>
+    )}
     </div>
   );
 }
@@ -197,15 +204,33 @@ function IconButton({
 }
 
 function AddGhostForm({
-  groupId,
+  group,
   onStatus,
 }: {
-  groupId: string;
+  group: GroupWithMembers;
   onStatus: (s: { text: string; error?: boolean } | null) => void;
 }) {
-  const add = useAddGhost(groupId);
+  const add = useAddGhost(group.id);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState<PhoneValue>(() => fromE164(null));
   const [error, setError] = useState<string | null>(null);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [added, setAdded] = useState<{ id: string; name: string; phone: string | null } | null>(null);
+  const [canPick, setCanPick] = useState(false);
+  useEffect(() => setCanPick(supportsContactPicker()), []);
+
+  const fromContacts = async () => {
+    try {
+      const c = await pickContact();
+      if (!c) return;
+      if (c.name) setName(c.name.slice(0, 40));
+      const e164 = bestE164(c.tels, phone.country);
+      if (e164) setPhone(fromE164(e164));
+      else if (c.tels[0]) setPhone({ ...phone, national: c.tels[0] });
+    } catch {
+      // cancelled or not allowed: nothing to do
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,36 +239,73 @@ function AddGhostForm({
       setError(invalid);
       return;
     }
+    setPhoneTouched(true);
+    if (phoneError(phone, false)) return;
+    const e164 = phone.national.trim() ? toE164(phone.national, phone.country) : null;
     setError(null);
     onStatus(null);
     try {
-      await add.mutateAsync(name);
-      onStatus({ text: `${name.trim()} added. Share their claim link so they can take the spot.` });
+      const id = await add.mutateAsync({ name, phone: e164 });
+      setAdded({ id, name: name.trim(), phone: e164 });
       setName("");
+      setPhone(fromE164(null));
+      setPhoneTouched(false);
     } catch (err) {
       setError(friendlyError(err));
     }
   };
 
   return (
-    <form onSubmit={submit} noValidate className="mt-6 border-t-[1.5px] border-ink/[0.06] pt-5">
-      <TextField
-        label="Add someone without an account"
-        placeholder="Their name"
-        maxLength={40}
-        autoComplete="off"
-        value={name}
-        onChange={(e) => {
-          setName(e.target.value);
-          setError(null);
-        }}
-        error={error}
-        hint="They can be in expenses now and claim the spot when they join."
-      />
-      <Button type="submit" variant="secondary" fullWidth className="mt-3" disabled={add.isPending}>
-        <UserPlus className="size-5" strokeWidth={2.25} />
-        {add.isPending ? "Adding…" : "Add ghost member"}
-      </Button>
-    </form>
+    <div className="mt-6 border-t-[1.5px] border-ink/[0.06] pt-5">
+      {added && (
+        <div className="mb-5">
+          <SendInvitePanel
+            group={group}
+            memberId={added.id}
+            name={added.name}
+            phone={added.phone}
+            onAddedPhone={(p) => setAdded({ ...added, phone: p })}
+          />
+          <button type="button" onClick={() => setAdded(null)} className="mt-2 h-10 w-full text-[13px] font-semibold text-ink/50">
+            Done
+          </button>
+        </div>
+      )}
+      <form onSubmit={submit} noValidate>
+        <p className="text-[15px] font-semibold">Add someone</p>
+        <p className="mt-0.5 text-[13px] font-medium text-ink/50">They can be in expenses now and take the spot when they join.</p>
+        {canPick && (
+          <Button type="button" variant="secondary" fullWidth className="mt-3 h-11" onClick={fromContacts}>
+            <Contact className="size-4" />
+            Pick from contacts
+          </Button>
+        )}
+        <TextField
+          label="Name"
+          placeholder="Their name"
+          maxLength={40}
+          autoComplete="off"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setError(null);
+          }}
+          error={error}
+          className="mt-3"
+        />
+        <PhoneField
+          className="mt-3"
+          label="Phone (optional)"
+          value={phone}
+          onChange={setPhone}
+          error={phoneTouched ? phoneError(phone, false) : null}
+          hint="Only admins see it. Used to send the invite; it doesn't let anyone in by itself."
+        />
+        <Button type="submit" variant="secondary" fullWidth className="mt-3" disabled={add.isPending}>
+          <UserPlus className="size-5" strokeWidth={2.25} />
+          {add.isPending ? "Adding…" : "Add"}
+        </Button>
+      </form>
+    </div>
   );
 }

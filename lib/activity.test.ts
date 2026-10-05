@@ -37,8 +37,8 @@ describe("describeActivity", () => {
   });
 
   it("members and ghosts", () => {
-    expect(describeActivity(row("ghost_claimed", { ghost_name: "Zoya" }, { display_name: "Priya Shah", user_id: "p" }), ME).text).toBe("Zoya was claimed by Priya");
-    expect(describeActivity(row("ghost_claimed", {}, { display_name: "Priya Shah", user_id: "p" }), ME).text).toBe("Priya claimed a spot");
+    expect(describeActivity(row("ghost_claimed", { ghost_name: "Zoya" }, { display_name: "Priya Shah", user_id: "p" }), ME).text).toBe("Priya joined (saved as Zoya)");
+    expect(describeActivity(row("ghost_claimed", {}, { display_name: "Priya Shah", user_id: "p" }), ME).text).toBe("Priya joined");
     expect(describeActivity(row("member_removed", { name: "Kabir Das" }), ME).text).toBe("Aman removed Kabir");
     expect(describeActivity(row("member_joined"), ME)).toMatchObject({ text: "Aman joined", target: { type: "members" } });
   });
@@ -86,5 +86,12 @@ describe("createThrottle", () => {
     vi.advanceTimersByTime(1000);
     expect(sent).toEqual([1, 3]);
     vi.useRealTimers();
+  });
+});
+
+describe("ghost claimed wording", () => {
+  it("no 'saved as' when the names match", () => {
+    const r = { id: "1", group_id: "g", actor_member: "m", kind: "ghost_claimed", entity_id: "m", payload: { ghost_name: "Rahul" }, created_at: "", actor: { display_name: "Rahul Mehta", user_id: "r" } };
+    expect(describeActivity(r, "me").text).toBe("Rahul joined");
   });
 });

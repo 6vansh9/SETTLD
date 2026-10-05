@@ -83,6 +83,7 @@ export interface Database {
           joined_at: string;
           left_at: string | null;
           notify_level: NotifyLevel;
+          added_by: string | null;
         };
         Insert: never;
         Update: never;
@@ -307,6 +308,18 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      user_phones: {
+        Row: { user_id: string; phone: string; updated_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      ghost_phones: {
+        Row: { member_id: string; group_id: string; phone: string; updated_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       reactions: {
         Row: { id: string; group_id: string; entity_type: SocialEntity; entity_id: string; member_id: string; emoji: ReactionEmoji | null; updated_at: string };
         Insert: never;
@@ -369,7 +382,10 @@ export interface Database {
       claim_ghost: { Args: { p_token: string; p_member_id: string }; Returns: string };
       regenerate_invite: { Args: { p_group_id: string }; Returns: string };
       ghost_claim_link: { Args: { p_member_id: string }; Returns: string };
-      add_ghost: { Args: { p_group_id: string; p_name: string }; Returns: string };
+      add_ghost: { Args: { p_group_id: string; p_name: string; p_phone?: string | null }; Returns: string };
+      set_my_phone: { Args: { p_phone: string | null }; Returns: undefined };
+      set_ghost_phone: { Args: { p_member_id: string; p_phone: string | null }; Returns: undefined };
+      claim_link_phone: { Args: { p_token: string }; Returns: string | null };
       remove_member: { Args: { p_member_id: string }; Returns: undefined };
       update_group: {
         Args: { p_group_id: string; p_name: string; p_emoji: string; p_color: Pastel };

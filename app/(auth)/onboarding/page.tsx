@@ -3,6 +3,7 @@ import { OnboardingFlow } from "@/components/features/onboarding/OnboardingFlow"
 import { getUserAndProfile } from "@/lib/auth";
 import { startStep } from "@/lib/onboarding";
 import { safeNext } from "@/lib/redirect";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Welcome · Settld" };
 
@@ -14,8 +15,24 @@ export default async function OnboardingPage({ searchParams }: { searchParams: {
   if (!profile) return <ProfileUnavailable next={next} />;
   if (profile.onboarded_at) redirect(next);
 
+  // Phone prefill: mine if saved, else the one my inviter saved on the spot a personal claim link
+  // points at (only that link's holder can read it; never used to claim anything).
+  const supabase = createClient();
+  const { data: mine } = await supabase.from("user_phones").select("phone").eq("user_id", user.id).maybeSingle();
+  let initialPhone = mine?.phone ?? null;
+  const token = /^\/join\/([A-Za-z0-9_-]{12,64})(?:[?#]|$)/.exec(next)?.[1];
+  if (!initialPhone && token) {
+    const { data } = await supabase.rpc("claim_link_phone", { p_token: token });
+    initialPhone = data ?? null;
+  }
+
   return (
-    <OnboardingFlow initialProfile={profile} initialStep={startStep(searchParams.step, profile.name)} next={next} />
+    <OnboardingFlow
+      initialProfile={profile}
+      initialStep={startStep(searchParams.step, profile.name)}
+      initialPhone={initialPhone}
+      next={next}
+    />
   );
 }
 

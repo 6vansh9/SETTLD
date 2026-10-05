@@ -22,25 +22,30 @@ export function JoinScreen({
   token,
   preview,
   details,
+  initialError = null,
 }: {
   token: string;
   preview: InvitePreview;
   /** null when signed out. */
   details: InviteDetails | null;
+  /** An automatic claim after sign-up failed (shown with the manual button). */
+  initialError?: string | null;
 }) {
   const router = useRouter();
   const reduce = useReducedMotion();
   const join = useJoinGroup();
   const claim = useClaimGhost();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const busy = join.isPending || claim.isPending;
-  const nextParam = `?next=${encodeURIComponent(`/join/${token}`)}`;
+  // auto=1: after sign-up/onboarding, a personal link claims its spot without another tap.
+  const nextParam = `?next=${encodeURIComponent(`/join/${token}?auto=1`)}`;
 
   const doJoin = async () => {
     setError(null);
     try {
-      router.push(`/g/${await join.mutateAsync(token)}`);
+      const groupId = await join.mutateAsync(token);
+      router.push(details?.claim ? `/g/${groupId}?welcome=1` : `/g/${groupId}`);
     } catch (err) {
       setError(friendlyError(err));
     }
@@ -50,7 +55,7 @@ export function JoinScreen({
     setError(null);
     setClaimingId(memberId);
     try {
-      router.push(`/g/${await claim.mutateAsync({ token, memberId })}`);
+      router.push(`/g/${await claim.mutateAsync({ token, memberId })}?welcome=1`);
     } catch (err) {
       setError(friendlyError(err));
       setClaimingId(null);

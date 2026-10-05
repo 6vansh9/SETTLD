@@ -133,7 +133,7 @@ Pastels stay pastel in dark mode, with black text on top, so cards glow against 
 | # | Screen | Route | Layout notes |
 | --- | --- | --- | --- |
 | 1 | Landing | `/` | Giant SPLIT / IT / SETTLD stacked title, faded second line; three pastel cards fanned below; Continue with Google + email |
-| 2 | Onboarding | `/onboarding` | Name, avatar (optional photo: Add photo / Use my Google photo; color as the fallback and photo ring), UPI ID (optional), default currency; last step = animated Add to Home Screen guide |
+| 2 | Onboarding | `/onboarding` | Name, phone number (required; country picker, +91 default; prefilled from a personal invite), avatar (optional photo: Add photo / Use my Google photo; color as the fallback and photo ring), UPI ID (optional), default currency; last step = animated Add to Home Screen guide |
 | 3 | Home (Groups) | `/groups` | Title SETTLD / GROUPS; overall balance in Jersey 10; stacked group cards with dog-ear, date, members, your balance; a tinted strip of the group background photo at the top when there is one |
 | 4 | Group | `/g/[id]` | Pastel header with emoji + name (over the group background photo under a pastel tint when set; admins set it in Group settings); balance split bar; tabs: Expenses, Balances, Graph, Activity; coral SETTLE UP footer |
 | 5 | Expense detail | sheet | Big amount, payer, split bar, per-person rows, reactions row, comment thread, edit and delete |
@@ -145,7 +145,7 @@ Pastels stay pastel in dark mode, with black text on top, so cards glow against 
 | 11 | Split Room | `/room/[code]` | Live bill: item cards, avatars of who tapped each, running per-person totals, QR to join, Finalize button |
 | 12 | Join group | `/join/[token]` | Preview card (group name, color, members); Join, or claim a ghost member slot |
 | 13 | Activity | `/activity` | Timeline across all groups, grouped by day, with group color stripe |
-| 14 | Profile | `/me` | Avatar (tap: Add / Change / Remove photo, Use my Google photo, avatar color), UPI ID, default currency, theme, privacy blur default, sign out |
+| 14 | Profile | `/me` | Avatar (tap: Add / Change / Remove photo, Use my Google photo, avatar color), phone (private), UPI ID, default currency, theme, privacy blur default, sign out |
 
 **Empty states** are designed, not blank: a single huge faded word (NOTHING / YET) with one CTA.
 
@@ -304,6 +304,8 @@ All money is stored as `bigint` minor units (paise, cents) with a `currency` cod
 | Table | Key columns | Notes |
 | --- | --- | --- |
 | `profiles` | id (= auth.users.id), name, avatar_color, avatar_url (nullable), upi_id, default_currency, privacy_blur | One per user |
+| `user_phones` | user_id, phone (E.164) | Private: only the owner can read it |
+| `ghost_phones` | member_id, group_id, phone (E.164) | Only that group's admins can read it; deleted when the spot is claimed |
 | `groups` | id, name, emoji, color, cover_url (nullable), base_currency, type, simplify, created_by, archived_at | |
 | `group_members` | id, group_id, user_id (nullable), display_name, is_ghost, role, joined_at | Ghosts have user_id null; claiming sets it |
 | `invites` | id, group_id, token (unique), created_by, revoked_at, ghost_member_id (nullable) | ghost_member_id = personal claim link |
@@ -332,6 +334,15 @@ All money is stored as `bigint` minor units (paise, cents) with a `currency` cod
 - Images are cropped, resized and compressed in the browser before upload: avatars 256×256 (round mask), covers 1200×600 (wide mask), WebP ~80% with JPEG fallback. Works with iPhone photos (Safari converts HEIC). Replacing or removing a photo deletes the old file. "Use my Google photo" copies the Google picture into our bucket.
 - Avatars show the photo everywhere (lists, sheets, Debt Graph, presence pill, Split Room) inside a ring in the person's avatar color. Ghosts never have photos.
 - Covers show the photo in its real colors with no overlay, clear at the top. A dark scrim (rgba(0,0,0,0.6)) starts just above the text block and sits only behind the text; text on covers is white, with faded parts (decimals, ₹, secondary labels) at 85% white (WCAG AA over a pure white photo). Labels above the scrim (date, nav) use a soft shadow, and the back/settings icons sit on small blurred dark circles. Home cards with a cover are full-bleed photos (about 240px tall) inside a 3px ring of the group's pastel, with the dog-ear; status chips stay solid. The group header shows the photo clear behind the nav and emoji, scrim from the title down, and a short fade into the pastel at the bottom; the WHO'S PAID card stays solid. The invite preview image uses the same treatment with a pastel frame. Groups without a cover are unchanged.
+
+### Phone numbers and phone invites
+
+- Phone numbers are **not verified** (no SMS OTP yet), so a number never grants access and never claims a ghost by itself. The personal claim link stays the only proof for taking a ghost's spot.
+- Private: never shown to other users. Stored outside `profiles` (`user_phones`: owner only; `ghost_phones`: that group's admins only). E.164, validated with libphonenumber-js.
+- Required at sign-up (onboarding step after name, +91 default); existing users get a one-time prompt with "Later"; editable on /me.
+- Add someone (admins): name + optional phone; "Pick from contacts" only where the Contact Picker API exists (Android Chrome), hidden on iPhone. After saving, and from "Send invite" on any unclaimed ghost: WhatsApp (`wa.me/<digits>?text=`) or SMS (`sms:<n>&body=` on iOS, `?body=` elsewhere) with a friendly message and the ghost's personal claim link.
+- A personal claim link opened signed out: sign up → onboarding (phone prefilled from the ghost, editable) → the spot is claimed automatically → the group opens with a one-time welcome card (who added you, spent so far, your balance, See the expenses). Already signed-in users confirm with one tap. Past expenses, splits and balances come with the spot.
+- Whoever added the ghost gets an activity entry and a push: "Rahul joined Goa Trip".
 
 ### Row-level security
 
