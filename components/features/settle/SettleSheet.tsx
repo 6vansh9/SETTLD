@@ -1,17 +1,18 @@
 "use client";
 
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AmountOverlay } from "@/components/features/expense/AmountOverlay";
 import { Amount, Avatar, Button, Sheet } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { friendlyError, microDate } from "@/lib/groups";
+import { friendlyError } from "@/lib/groups";
 import { memberAvatar, type GroupWithMembers, type MemberWithProfile } from "@/lib/groups-data";
 import { pastelVar } from "@/lib/pastels";
 import { useRecordSettlement } from "@/lib/queries/settlements";
 import { clearsDebt, myTransfers, plannedAmount } from "@/lib/settle";
 import type { Transfer } from "@/lib/simplify";
 import type { SettlementMethod } from "@/lib/supabase/types";
+import { shareImage } from "@/lib/share-image";
 import { buildUpiLink, canPayViaUpi } from "@/lib/upi";
 
 type Step = "pick" | "details" | "upi-wait" | "upi-confirm" | "done";
@@ -51,7 +52,8 @@ export function SettleSheet({
   const [step, setStep] = useState<Step>("pick");
   const [pending, setPending] = useState<Pending | null>(null);
   const [amountOpen, setAmountOpen] = useState(false);
-  const [recorded, setRecorded] = useState<{ p: Pending; method: SettlementMethod; byReceiver: boolean } | null>(null);
+  const [recorded, setRecorded] = useState<{ p: Pending; method: SettlementMethod; byReceiver: boolean; id: string | null } | null>(null);
+  const [sharing, setSharing] = useState<"story" | "chat" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const clientId = useRef("");
   const record = useRecordSettlement(group.id, { myUserId: me.user_id ?? "", myMemberId: me.id, currency: group.base_currency });
@@ -87,8 +89,8 @@ export function SettleSheet({
       setError(null);
       try {
         // Optimistic: the payment shows in the group immediately; the sheet waits for the server.
-        await record.mutateAsync({ ...p, method, clientId: clientId.current, silent: true });
-        setRecorded({ p, method, byReceiver: p.to === me.id });
+        const row = await record.mutateAsync({ ...p, method, clientId: clientId.current, silent: true });
+        setRecorded({ p, method, byReceiver: p.to === me.id, id: row?.id ?? null });
         setStep("done");
         if (clearsDebt(planAtOpen.current, p.from, p.to, p.amount)) onSettledUp();
       } catch (err) {
@@ -263,35 +265,58 @@ export function SettleSheet({
 
         {step === "done" && recorded && (
           <div>
-            {/* Receipt placeholder: the shareable poster card is rendered by the server in Milestone 7. */}
-            <div
-              className="relative overflow-hidden rounded-card border-[1.5px] border-on-pastel/[0.08] p-6 text-on-pastel"
-              style={{ backgroundColor: pastelVar(group.color) }}
-            >
-              <p className="micro opacity-60">
-                {group.name} · {microDate(new Date().toISOString())}
-              </p>
-              <p className="mt-4 font-display text-[40px] uppercase leading-[0.9]">
-                {label(recorded.p.from)}
-                <br />
-                <span className="opacity-40">→</span> {label(recorded.p.to)}
-              </p>
-              <Amount amount={recorded.p.amount} currency={currency} size="xl" className="mt-4" />
-              <span className="absolute right-5 top-5 flex rotate-6 items-center gap-1 rounded-full border-2 border-on-pastel px-3 py-1 font-display-alt text-[18px] uppercase">
-                Settld <Check className="size-4" strokeWidth={3} />
-              </span>
-            </div>
+            {recorded.id ? (
+              // The real receipt (server-rendered, same card that gets shared).
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/og/receipt/${recorded.id}?size=chat`}
+                alt={`Receipt: ${label(recorded.p.from)} paid ${label(recorded.p.to)}`}
+                width={1200}
+                height={630}
+                className="aspect-[1200/630] w-full rounded-card border-[1.5px] border-on-pastel/[0.08] object-cover"
+                style={{ backgroundColor: pastelVar(group.color) }}
+              />
+            ) : (
+              <div className="aspect-[1200/630] w-full animate-pulse rounded-card" style={{ backgroundColor: pastelVar(group.color) }} />
+            )}
             <p className="mt-4 text-center text-[14px] font-medium text-ink/70">
               {recorded.byReceiver
                 ? "Recorded and confirmed."
                 : `Recorded. ${label(recorded.p.to)} can confirm it from the group.`}
             </p>
             <div className="mt-6 grid grid-cols-2 gap-2">
-              <Button variant="secondary" disabled title="Coming soon">
-                Share receipt
+              <Button
+                variant="secondary"
+                disabled={!recorded.id || !!sharing}
+                onClick={async () => {
+                  setSharing("story");
+                  const r = await shareImage(`/api/og/receipt/${recorded.id}?size=story`, "settld-receipt-story.png", "Settld receipt");
+                  setSharing(null);
+                  if (r === "failed") setError("Couldn't make the image. Try again.");
+                }}
+              >
+                {sharing === "story" ? "…" : "Share to story"}
               </Button>
-              <Button onClick={onClose}>Done</Button>
+              <Button
+                disabled={!recorded.id || !!sharing}
+                onClick={async () => {
+                  setSharing("chat");
+                  const r = await shareImage(`/api/og/receipt/${recorded.id}?size=chat`, "settld-receipt.png", "Settld receipt");
+                  setSharing(null);
+                  if (r === "failed") setError("Couldn't make the image. Try again.");
+                }}
+              >
+                {sharing === "chat" ? "…" : "Share"}
+              </Button>
             </div>
+            {error && (
+              <p role="alert" className="mt-3 text-center text-[13px] font-medium text-owe-ink">
+                {error}
+              </p>
+            )}
+            <Button variant="ghost" fullWidth className="mt-2" onClick={onClose}>
+              Done
+            </Button>
           </div>
         )}
       </Sheet>

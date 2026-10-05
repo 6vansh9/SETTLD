@@ -7,6 +7,7 @@ import { Title } from "@/components/ui";
 import type { FeedRow } from "@/lib/activity-data";
 import { useMyActivity } from "@/lib/queries/activity";
 import { useMyActivityRealtime } from "@/lib/realtime/useMyActivityRealtime";
+import { BottomTabBar } from "@/components/features/nav/BottomTabBar";
 import { ActivityList } from "./ActivityList";
 
 /** /activity: everything across my groups, grouped by day, with each group's color stripe. Live. */
@@ -27,7 +28,7 @@ export function ActivityFeed({
   useMyActivityRealtime(groupIds, myUserId);
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-app px-5 pb-[calc(32px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
+    <main className="mx-auto min-h-dvh w-full max-w-app px-5 pb-[calc(112px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
       <header className="flex h-11 items-center">
         <Link href="/groups" aria-label="Back to groups" className="-ml-2 flex size-11 items-center justify-center rounded-full hover:bg-ink/5">
           <ArrowLeft className="size-5" strokeWidth={2.25} />
@@ -59,6 +60,7 @@ export function ActivityFeed({
           />
         )}
       </div>
+      <BottomTabBar />
     </main>
   );
 }

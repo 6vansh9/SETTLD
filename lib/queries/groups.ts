@@ -13,8 +13,8 @@ export const groupKeys = {
   invite: (id: string) => ["group", id, "invite"] as const,
 };
 
-export function useGroups(initialData?: GroupWithMembers[]) {
-  return useQuery({ queryKey: groupKeys.all, queryFn: () => fetchGroups(createClient()), initialData });
+export function useGroups(initialData?: GroupWithMembers[], enabled = true) {
+  return useQuery({ queryKey: groupKeys.all, queryFn: () => fetchGroups(createClient()), initialData, enabled });
 }
 
 export function useGroup(id: string, initialData?: GroupWithMembers | null) {

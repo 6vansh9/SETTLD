@@ -82,15 +82,18 @@ function useFailureToast() {
 export interface CreateVars {
   args: ExpenseRpcArgs;
   clientId: string;
+  /** Overrides the hook's group (the command bar can target any group). */
+  groupId?: string;
 }
 
 /** Add expense, optimistically: the row and the balance preview appear before the server answers. */
-export function useCreateExpense(groupId: string, myUserId: string) {
+export function useCreateExpense(defaultGroupId: string, myUserId: string) {
   const qc = useQueryClient();
   const fail = useFailureToast();
   const self = useRef<(v: CreateVars) => void>(() => {});
   const m = useMutation({
-    mutationFn: async ({ args, clientId }: CreateVars) => {
+    mutationFn: async ({ args, clientId, groupId: g }: CreateVars) => {
+      const groupId = g ?? defaultGroupId;
       const supabase = createClient();
       const id = await rpc(
         supabase.rpc("create_expense", {
@@ -111,7 +114,8 @@ export function useCreateExpense(groupId: string, myUserId: string) {
       pendingWrites.start(id);
       return fetchExpense(supabase, id);
     },
-    onMutate: async ({ args, clientId }) => {
+    onMutate: async ({ args, clientId, groupId: g }) => {
+      const groupId = g ?? defaultGroupId;
       pendingWrites.start(clientId);
       const snap = await snapshot(qc, groupId);
       const { payers, splits } = linesOf(args);
@@ -139,16 +143,17 @@ export function useCreateExpense(groupId: string, myUserId: string) {
       qc.setQueryData<GroupBalance[]>(expenseKeys.balances(groupId), (b) => (b ? applyDelta(b, expenseDelta(payers, splits)) : b));
       return snap;
     },
-    onSuccess: (row, { clientId }) => {
+    onSuccess: (row, { clientId, groupId: g }) => {
+      const groupId = g ?? defaultGroupId;
       qc.setQueryData<ExpenseWithLines[]>(expenseKeys.list(groupId), (list) => replaceTemp(list, tempId(clientId), row));
     },
     onError: (err, vars, snap) => {
-      rollback(qc, groupId, snap);
+      rollback(qc, vars.groupId ?? defaultGroupId, snap);
       fail(`Couldn't add “${vars.args.title}”`, err, () => self.current(vars));
     },
-    onSettled: (row, _e, { clientId }) => {
+    onSettled: (row, _e, { clientId, groupId: g }) => {
       pendingWrites.finish(clientId, row?.id);
-      refreshMoney(qc, groupId);
+      refreshMoney(qc, g ?? defaultGroupId);
     },
   });
   self.current = m.mutate;

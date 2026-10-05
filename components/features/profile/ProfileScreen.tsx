@@ -11,6 +11,7 @@ import { useProfile, useUpdateProfile } from "@/lib/queries/profile";
 import { signOutAndReset } from "@/lib/session-reset";
 import type { Profile } from "@/lib/supabase/types";
 import { isValidUpiId, normalizeUpiId } from "@/lib/upi";
+import { BottomTabBar } from "@/components/features/nav/BottomTabBar";
 import { ColorPicker } from "./ColorPicker";
 import { CurrencyPicker } from "./CurrencyPicker";
 import { TextField } from "./TextField";
@@ -42,7 +43,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
   };
 
   return (
-    <main className="mx-auto w-full max-w-app px-5 pb-[calc(32px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
+    <main className="mx-auto w-full max-w-app px-5 pb-[calc(112px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
       <header className="flex h-11 items-center">
         <Link
           href="/groups"
@@ -113,6 +114,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
         {signingOut ? "Signing out…" : "Sign out"}
       </Button>
 
+      <BottomTabBar />
       <NameSheet
         open={editing === "name"}
         initial={profile.name}

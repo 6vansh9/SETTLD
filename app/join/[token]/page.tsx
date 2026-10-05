@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { JoinScreen, type InvitePreview } from "@/components/features/join/JoinScreen";
 import { getUserAndProfile } from "@/lib/auth";
 import { PASTEL_HEX } from "@/lib/pastels";
+import { requestOrigin } from "@/lib/request-origin";
 import { createClient } from "@/lib/supabase/server";
 
 type Params = { params: { token: string } };
@@ -20,6 +22,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!preview) return { title: "Invite expired · Settld", robots: { index: false } };
 
   const title = `Join ${preview.name} on Settld`;
+  const h = headers();
+  const origin = requestOrigin(h, `https://${h.get("host") ?? "settld-omega.vercel.app"}/`);
+  const image = `${origin}/api/og/invite/${encodeURIComponent(params.token)}`;
   const description = `${preview.emoji} ${preview.member_count} ${
     preview.member_count === 1 ? "person is" : "people are"
   } splitting expenses live. Tap to join.`;
@@ -27,9 +32,15 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     title,
     description,
     robots: { index: false },
-    // The rendered preview image arrives with the receipt renderer in Milestone 7.
-    openGraph: { title, description, siteName: "Settld", type: "website" },
-    twitter: { card: "summary", title, description },
+    // Absolute URL from the request's own origin (WhatsApp/iMessage need it absolute).
+    openGraph: {
+      title,
+      description,
+      siteName: "Settld",
+      type: "website",
+      images: [{ url: image, width: 1200, height: 630, alt: `${preview.emoji} ${preview.name} on Settld` }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }
 

@@ -45,6 +45,7 @@ export function ExpenseEditor({
   myMemberId,
   myUserId,
   expense,
+  initialDraft,
   onTypingChange,
 }: {
   open: boolean;
@@ -54,6 +55,8 @@ export function ExpenseEditor({
   myMemberId: string;
   myUserId: string;
   expense?: ExpenseWithLines | null;
+  /** Prefill a new expense (command bar → Tab). */
+  initialDraft?: ExpenseDraft | null;
   /** Presence: true while this editor is open (others see "… is adding an expense"). */
   onTypingChange?: (typing: boolean) => void;
 }) {
@@ -78,8 +81,8 @@ export function ExpenseEditor({
   useEffect(() => {
     if (!open) return;
     clientId.current = crypto.randomUUID();
-    setDraft(expense ? draftFromExpense(expense, base) : newDraft(memberIds, myMemberId, undefined, base));
-    setAmountOpen(!expense);
+    setDraft(expense ? draftFromExpense(expense, base) : (initialDraft ?? newDraft(memberIds, myMemberId, undefined, base)));
+    setAmountOpen(!expense && !(initialDraft && initialDraft.amount > 0));
     setTriedSave(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when (re)opened
   }, [open, expense?.id]);

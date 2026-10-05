@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityList } from "@/components/features/activity/ActivityList";
+import { DebtGraph } from "@/components/features/debt-graph/DebtGraph";
+import { useCommandBar } from "@/components/features/command-bar/CommandBarProvider";
 import { usePillQueue } from "@/components/features/activity/usePillQueue";
 import { useToast } from "@/components/providers/ToastProvider";
 import { BalancesTab } from "@/components/features/expense/BalancesTab";
@@ -47,7 +49,7 @@ const UNDO_MS = 10_000;
 const TABS = [
   { id: "expenses", label: "Expenses", empty: ["NO", "EXPENSES"], hint: "Add the first one: dinner, cab, rent, anything." },
   { id: "balances", label: "Balances", empty: ["ALL", "SQUARE"], hint: "Who owes whom shows up here once there are expenses." },
-  { id: "graph", label: "Graph", empty: ["NO", "DEBTS"], hint: "The live debt graph lands in a later update." },
+  { id: "graph", label: "Graph", empty: ["NO", "DEBTS"], hint: "Add an expense to see who owes whom, drawn live." },
   { id: "activity", label: "Activity", empty: ["QUIET", "HERE"], hint: "Every change in the group will show up here." },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -66,6 +68,7 @@ export function GroupScreen({
   myUserId: string;
 }) {
   const { show } = useToast();
+  const commandBar = useCommandBar();
   const { data: group } = useGroup(initialGroup.id, initialGroup);
   const { data: expenses = initialExpenses } = useExpenses(initialGroup.id, initialExpenses);
   const { data: balances = initialBalances } = useBalances(initialGroup.id, initialBalances);
@@ -417,6 +420,16 @@ export function GroupScreen({
             onSettle={(t) => setSettle({ prefill: t })}
           />
         )}
+        {tab === "graph" && expenses.length > 0 && (
+          <DebtGraph
+            group={g}
+            balances={balances}
+            expenses={expenses}
+            settlements={settlements}
+            myMemberId={me.id}
+            onSettle={(prefill) => setSettle({ prefill })}
+          />
+        )}
         {tab === "activity" && activity.length > 0 && (
           <ActivityList rows={activity} myUserId={myUserId} myDisplayName={me.display_name} onOpen={(_row, target) => openTarget(target)} />
         )}
@@ -427,7 +440,7 @@ export function GroupScreen({
             ))}
           </div>
         )}
-        {(tab === "graph" ||
+        {((tab === "graph" && expenses.length === 0) ||
           (tab === "activity" && !activityLoading && activity.length === 0) ||
           (tab !== "activity" && expenses.length === 0 && (tab === "balances" || settlements.length === 0))) && (
           <div className="flex flex-col items-center py-6 text-center">
@@ -452,8 +465,8 @@ export function GroupScreen({
         <div className="pointer-events-none fixed inset-x-0 z-30 mx-auto flex max-w-app justify-end px-5" style={{ bottom: "calc(104px + env(safe-area-inset-bottom))" }}>
           <button
             type="button"
-            onClick={() => setEditor({ expense: null })}
-            aria-label="Add expense"
+            onClick={() => commandBar.open(g.id)}
+            aria-label="Quick add expense"
             className="pointer-events-auto flex size-16 items-center justify-center rounded-full bg-ink text-bg transition-transform active:scale-95"
           >
             <Plus className="size-7" strokeWidth={2.5} />

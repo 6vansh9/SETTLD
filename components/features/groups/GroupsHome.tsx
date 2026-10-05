@@ -13,6 +13,7 @@ import { fade, spring } from "@/lib/motion";
 import { useAllBalances } from "@/lib/queries/expenses";
 import { useGroups } from "@/lib/queries/groups";
 import { useMyActivityRealtime } from "@/lib/realtime/useMyActivityRealtime";
+import { BottomTabBar } from "@/components/features/nav/BottomTabBar";
 import { useProfile } from "@/lib/queries/profile";
 import type { GroupBalance, Profile } from "@/lib/supabase/types";
 import { CreateGroupSheet } from "./CreateGroupSheet";
@@ -47,7 +48,7 @@ export function GroupsHome({
   const netIn = (g: GroupWithMembers) => myNetInGroup(g, balances, me.id);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-app flex-col px-5 pb-[calc(32px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-app flex-col px-5 pb-[calc(112px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
       <header className="flex items-center justify-between">
         <span className="micro">Hey, {me.name.split(" ")[0]}</span>
         <div className="flex items-center gap-2">
@@ -178,6 +179,7 @@ export function GroupsHome({
         </>
       )}
 
+      <BottomTabBar />
       <CreateGroupSheet open={creating} onClose={() => setCreating(false)} defaultCurrency={me.default_currency} />
     </main>
   );
