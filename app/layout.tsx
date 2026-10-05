@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Big_Shoulders_Display, Inter, Jersey_10 } from "next/font/google";
 import { themeScript } from "@/components/providers/ThemeProvider";
+import Script from "next/script";
+import { compatScript } from "@/lib/compat";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -46,6 +48,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       className={`${anton.variable} ${bigShoulders.variable} ${jersey.variable} ${inter.variable}`}
     >
       <head>
+        {/* Older iOS Safari: polyfills + reload once on stale chunks. Must run before anything else. */}
+        <Script id="settld-compat" strategy="beforeInteractive">
+          {compatScript}
+        </Script>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>

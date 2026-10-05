@@ -23,12 +23,19 @@ export function validateName(name: string, what = "Group name"): string | null {
   return null;
 }
 
+const SINGLE_EMOJI =
+  /^(?:\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})*(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})*)*(?:[\u{E0020}-\u{E007E}]+\u{E007F})?)$/u;
+
 /** Exactly one emoji (a single grapheme that is pictographic). */
 export function isSingleEmoji(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
-  const graphemes = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(trimmed)];
-  return graphemes.length === 1 && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(trimmed);
+  // Intl.Segmenter is iOS 14.5+; older Safari gets an emoji-sequence regex instead.
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const graphemes = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(trimmed)];
+    return graphemes.length === 1 && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(trimmed);
+  }
+  return SINGLE_EMOJI.test(trimmed);
 }
 
 export function inviteUrl(origin: string, token: string): string {

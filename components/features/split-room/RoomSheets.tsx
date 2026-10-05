@@ -11,6 +11,7 @@ import { useFinalizeRoom } from "@/lib/queries/rooms";
 import { claimantsOf, sharesOf, type RoomData } from "@/lib/split-room-data";
 import { allocate, itemCost, type PersonTotal, type RoomBill } from "@/lib/splitRoom";
 import type { SplitRoomItem } from "@/lib/supabase/types";
+import { uuid } from "@/lib/uuid";
 
 const first = (n: string) => n.split(" ")[0];
 
@@ -206,7 +207,7 @@ export function FinalizeSheet({
   const finalize = useFinalizeRoom(code, group.id);
   const [payer, setPayer] = useState(d.room.host_member);
   const [error, setError] = useState<string | null>(null);
-  const clientId = useRef(crypto.randomUUID());
+  const clientId = useRef(uuid());
   const members = group.members.filter((m) => !m.left_at);
 
   return (

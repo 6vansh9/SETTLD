@@ -21,6 +21,7 @@ import {
   type PhotoKind,
 } from "@/lib/images";
 import { createClient } from "@/lib/supabase/client";
+import { uuid } from "@/lib/uuid";
 
 /**
  * Pick → crop (drag to move, slider to zoom; round mask for avatars, wide for covers) → resize +
@@ -146,7 +147,7 @@ function CropBody({
       const supabase = createClient();
       const { data } = await supabase.auth.getSession();
       if (!data.session) throw new Error("Sign in again to upload.");
-      const path = `${folder}/${crypto.randomUUID()}.${extensionFor(out)}`;
+      const path = `${folder}/${uuid()}.${extensionFor(out)}`;
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       await uploadWithProgress({
         supabaseUrl: url,

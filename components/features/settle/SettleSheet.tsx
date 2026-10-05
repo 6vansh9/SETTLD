@@ -14,6 +14,7 @@ import type { Transfer } from "@/lib/simplify";
 import type { SettlementMethod } from "@/lib/supabase/types";
 import { shareImage } from "@/lib/share-image";
 import { buildUpiLink, canPayViaUpi } from "@/lib/upi";
+import { uuid } from "@/lib/uuid";
 
 type Step = "pick" | "details" | "upi-wait" | "upi-confirm" | "done";
 
@@ -71,7 +72,7 @@ export function SettleSheet({
     setRecorded(null);
     if (prefill) {
       setPending({ ...prefill });
-      clientId.current = crypto.randomUUID();
+      clientId.current = uuid();
       setStep("details");
     } else {
       setPending(null);
@@ -137,7 +138,7 @@ export function SettleSheet({
                       type="button"
                       onClick={() => {
                         setPending({ ...t });
-                        clientId.current = crypto.randomUUID();
+                        clientId.current = uuid();
                         setStep("details");
                       }}
                       className="flex w-full items-center gap-3 rounded-card border-[1.5px] border-ink/[0.08] bg-surface p-4 text-left hover:bg-ink/[0.02]"

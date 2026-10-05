@@ -18,6 +18,7 @@ import { canSaveParsed, parseCommand, parsedToDraft, type ParseGroup, type Parse
 import { pastelVar } from "@/lib/pastels";
 import { expenseKeys, useCreateExpense } from "@/lib/queries/expenses";
 import { useQueryClient } from "@tanstack/react-query";
+import { uuid } from "@/lib/uuid";
 
 export const LAST_GROUP_KEY = "settld-last-group";
 
@@ -76,7 +77,7 @@ export function CommandBar({
     setResolved({});
     setPicking(null);
     setConfirmed(false);
-    clientId.current = crypto.randomUUID();
+    clientId.current = uuid();
     const last = readLastGroup();
     setGroupId([initialGroupId, last, live[0]?.id].find((id) => id && live.some((g) => g.id === id)) ?? null);
     setTimeout(() => inputRef.current?.focus(), 30);

@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { latestRoom, useSaveItems } from "@/lib/queries/rooms";
 import { roomCharges, type RoomData } from "@/lib/split-room-data";
 import { CHARGE_KEYS, MAX_QTY, parsePercentBp, type Charge, type ChargeKey, type RoomCharges } from "@/lib/splitRoom";
+import { uuid } from "@/lib/uuid";
 
 const LABEL: Record<ChargeKey, string> = { tax: "Tax", service: "Service charge", tip: "Tip" };
 
@@ -69,7 +70,7 @@ function EditorBody({ code, d, currency, onDone }: { code: string; d: RoomData; 
     const items = currentItems();
     const next = editId
       ? items.map((i) => (i.id === editId ? { ...i, name: n, price: p, qty: q } : i))
-      : [...items, { id: crypto.randomUUID(), name: n, price: p, qty: q }];
+      : [...items, { id: uuid(), name: n, price: p, qty: q }];
     save.mutate({ roomId: d.room.id, items: next });
     setName("");
     setPrice("");

@@ -281,3 +281,15 @@
 - **Home cards:** the cover strip is taller (`pt-14`), with the avatars and date at its bottom in white over `stripScrim`, fading into the pastel.
 - **Invite OG:** the same photo, wash and scrim (0.55 at the top, so "YOU'RE INVITED" is full white; 0.75 from 240 px), white wordmark and text, and a pastel fade at the bottom.
 - **Verified:** screenshots at 390px of the live Goa photo plus white and black test images, light and dark, cards, and OG renders.
+
+### Older iOS Safari + error screens (2026-10-05, user request)
+
+- **Audit** (source and built chunks):
+  - **Our code:** `crypto.randomUUID` (iOS 15.4+) is now `uuid()` from `lib/uuid.ts`, which falls back to `getRandomValues`. It was called during render in the Split Room finalize sheet. `Intl.Segmenter` (iOS 14.5+) gets a regex fallback in `isSingleEmoji`. `matchMedia().addEventListener` (iOS 14+) gets an `addListener` fallback in ThemeProvider.
+  - **Libraries:** TanStack Query ships `??=` (a parse error before iOS 14), and @supabase/ssr calls `.at()`. `transpilePackages` (next.config.mjs) compiles TanStack, Supabase and framer-motion down to Next's default targets; built chunks now contain no logical assignment or class static blocks.
+- **`lib/compat.ts` → `compatScript`** (plain ES5, `next/script` beforeInteractive in app/layout.tsx; inline in global-error):
+  - Polyfills `Array/String.prototype.at`, `findLast`/`findLastIndex`, `Object.hasOwn` and `crypto.randomUUID`.
+  - Reloads once when a stale `/_next/static` chunk fails (ChunkLoadError / dynamic import), with a 30 s guard in sessionStorage so it never loops (`lib/chunk-error.ts`).
+- **Error screens:** `app/error.tsx` and `app/global-error.tsx` → `components/ErrorScreen.tsx` ("OOPS BROKE", the error, page, browser and time in a copyable box, Copy details / Reload / Try again / Go to my groups). Chunk errors show "Getting the latest version…" and reload once. **`/debug/crash`** (`?kind=chunk`) crashes on purpose so the screen can be checked from a phone.
+- **SSR audit:** browser APIs (window/localStorage/navigator/document) are only used in effects, handlers or after `typeof` checks; storage access is wrapped in try/catch.
+- **Tests:** `lib/compat.test.ts` runs the inline script in a stripped "old Safari" VM realm (polyfills, reload once, ignores other errors), checks it's ES5, covers `uuid()` without randomUUID and the emoji fallback against Segmenter. Headless against a production build: plain crash → error screen with details; ChunkLoadError → exactly 2 loads, then the screen.

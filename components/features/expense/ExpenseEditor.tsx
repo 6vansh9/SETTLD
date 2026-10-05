@@ -25,6 +25,7 @@ import { activeMembers, memberAvatar, type GroupWithMembers, type MemberWithProf
 import { CURRENCIES, CURRENCY_CODES, formatPercent, type CurrencyCode, type SplitType } from "@/lib/money";
 import { useCreateExpense, useUpdateExpense } from "@/lib/queries/expenses";
 import { AmountOverlay } from "./AmountOverlay";
+import { uuid } from "@/lib/uuid";
 
 const SPLIT_TABS: { value: SplitType; label: string }[] = [
   { value: "equal", label: "Equal" },
@@ -80,7 +81,7 @@ export function ExpenseEditor({
   // Fresh draft (and a fresh idempotency key) every time the editor opens.
   useEffect(() => {
     if (!open) return;
-    clientId.current = crypto.randomUUID();
+    clientId.current = uuid();
     setDraft(expense ? draftFromExpense(expense, base) : (initialDraft ?? newDraft(memberIds, myMemberId, undefined, base)));
     setAmountOpen(!expense && !(initialDraft && initialDraft.amount > 0));
     setTriedSave(false);
