@@ -59,7 +59,7 @@ export function SendInvitePanel({
   return (
     <div className="rounded-2xl border-[1.5px] border-ink/[0.08] bg-ink/[0.02] p-4">
       <p className="text-[15px] font-semibold">Send {name.split(" ")[0]} an invite</p>
-      <p className="mt-0.5 text-[13px] font-medium text-ink/55">
+      <p className="mt-0.5 text-[13px] font-medium text-ink/60">
         {phone ? `To ${formatPhone(phone)}. ` : ""}Their personal link lets them take this spot, with everything already split.
       </p>
       <div className="mt-3 flex gap-2">

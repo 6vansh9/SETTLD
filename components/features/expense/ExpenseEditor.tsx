@@ -246,7 +246,7 @@ function ExpenseForm({
             value={draft.date}
             max="2100-12-31"
             onChange={(e) => e.target.value && set("date", e.target.value)}
-            className="h-12 w-full rounded-2xl border-[1.5px] border-ink/15 bg-surface px-4 text-[15px] font-medium text-ink focus:border-ink focus:outline-none [color-scheme:inherit]"
+            className="h-12 w-full rounded-2xl border-[1.5px] border-ink/15 bg-surface px-4 text-[16px] font-medium text-ink focus:border-ink focus:outline-none [color-scheme:inherit]"
           />
         </Field>
 
@@ -262,7 +262,7 @@ function ExpenseForm({
             value={draft.note}
             onChange={(e) => set("note", e.target.value)}
             placeholder="Anything worth remembering"
-            className="w-full resize-none rounded-2xl border-[1.5px] border-ink/15 bg-surface px-4 py-3 text-[15px] font-medium text-ink placeholder:text-ink/25 focus:border-ink focus:outline-none"
+            className="w-full resize-none rounded-2xl border-[1.5px] border-ink/15 bg-surface px-4 py-3 text-[16px] font-medium text-ink placeholder:text-ink/25 focus:border-ink focus:outline-none"
           />
         </Field>
       </div>
@@ -393,7 +393,7 @@ function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             "h-9 rounded-full text-[13px] font-semibold transition-colors",
-            value === o.value ? "bg-surface text-ink shadow-[0_0_0_1.5px_rgb(var(--ink-rgb)/0.08)]" : "text-ink/50",
+            value === o.value ? "bg-surface text-ink shadow-[0_0_0_1.5px_rgb(var(--ink-rgb)/0.08)]" : "text-ink/60",
           )}
         >
           {o.label}
@@ -465,7 +465,7 @@ function PaidBy({
             </p>
           )}
         </div>
-        <p className="mt-1 text-[13px] font-medium text-ink/50">Who actually paid the money.</p>
+        <p className="mt-1 text-[13px] font-medium text-ink/60">Who actually paid the money.</p>
       </div>
       <Segmented
         label="Payers"
@@ -492,7 +492,7 @@ function PaidBy({
                 <span className={cn("rounded-full p-0.5 ring-[2.5px] transition-colors", active ? "ring-ink" : "ring-transparent")}>
                   <Avatar {...memberAvatar(m)} size="lg" />
                 </span>
-                <span className={cn("w-full truncate text-center text-[12px] font-semibold", !active && "text-ink/50")}>{name(m)}</span>
+                <span className={cn("w-full truncate text-center text-[12px] font-semibold", !active && "text-ink/60")}>{name(m)}</span>
               </button>
             );
           })}
@@ -562,7 +562,7 @@ function SplitSection({
           {draft.included.length === members.length ? "Clear all" : "Everyone"}
         </button>
       </div>
-      <p className="-mt-2 text-[13px] font-medium text-ink/50">Who was this for? Each person&apos;s share of the cost.</p>
+      <p className="-mt-2 text-[13px] font-medium text-ink/60">Who was this for? Each person&apos;s share of the cost.</p>
       <Segmented label="Split type" value={draft.splitType} options={SPLIT_TABS} onChange={(splitType) => setDraft((d) => ({ ...d, splitType }))} />
 
       <ul className="divide-y-[1.5px] divide-ink/[0.06]">
@@ -590,7 +590,7 @@ function SplitSection({
                     {included && <Check className="size-2.5" strokeWidth={4} />}
                   </span>
                 </span>
-                <span className={cn("truncate text-[15px] font-semibold", !included && "text-ink/35")}>{name(m)}</span>
+                <span className={cn("truncate text-[15px] font-semibold", !included && "text-ink/60")}>{name(m)}</span>
               </button>
 
               {included && draft.splitType === "exact" && (
@@ -599,7 +599,7 @@ function SplitSection({
 
               {included && draft.splitType === "percent" && (
                 <div className="flex items-center gap-2">
-                  {share !== undefined && <Amount amount={share} currency={currency} size="sm" className="text-ink/50" unblurrable />}
+                  {share !== undefined && <Amount amount={share} currency={currency} size="sm" className="text-ink/60" unblurrable />}
                   <label className="flex h-11 w-[84px] items-center rounded-xl border-[1.5px] border-ink/15 bg-bg px-3 focus-within:border-ink">
                     <input
                       aria-label={`${name(m)}'s percentage`}
@@ -616,7 +616,7 @@ function SplitSection({
 
               {included && draft.splitType === "shares" && (
                 <div className="flex items-center gap-2">
-                  {share !== undefined && <Amount amount={share} currency={currency} size="sm" className="text-ink/50" unblurrable />}
+                  {share !== undefined && <Amount amount={share} currency={currency} size="sm" className="text-ink/60" unblurrable />}
                   <ShareStepper
                     label={name(m)}
                     value={Number(draft.shares[m.id] ?? "1") || 0}
@@ -736,7 +736,7 @@ function CurrencyAndRate({
               </button>
             )}
           </div>
-          <p className="mt-1 text-[12px] font-medium text-ink/50" aria-live="polite">
+          <p className="mt-1 text-[12px] font-medium text-ink/60" aria-live="polite">
             {status.state === "loading" && draft.rateSource === "auto"
               ? "Getting today's rate…"
               : evaluation.rate
@@ -752,7 +752,7 @@ function CurrencyAndRate({
           {editing && (
             <div className="mt-3 flex items-center gap-2">
               <label className="flex h-11 flex-1 items-center rounded-xl border-[1.5px] border-ink/15 bg-surface px-3 focus-within:border-ink">
-                <span className="whitespace-nowrap text-[13px] font-semibold text-ink/50">
+                <span className="whitespace-nowrap text-[13px] font-semibold text-ink/60">
                   1 {draft.currency} = {CURRENCIES[baseCurrency].symbol}
                 </span>
                 <input

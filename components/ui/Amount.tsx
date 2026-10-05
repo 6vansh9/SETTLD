@@ -42,7 +42,7 @@ export interface AmountProps {
 }
 
 /**
- * Every money amount in the UI. Currency symbol and decimals at 35% opacity,
+ * Every money amount in the UI. Currency symbol and decimals at 70% opacity (AA),
  * whole number full strength, Jersey 10, Indian grouping for INR.
  */
 export function Amount({
@@ -75,20 +75,21 @@ export function Amount({
 
   const content = (
     <>
-      <span className="opacity-[var(--amount-faded,0.35)]">
+      <span className="opacity-[var(--amount-faded,0.7)]">
         {parts.negative ? "−" : ""}
         {parts.symbol}
       </span>
       <span>{parts.whole}</span>
-      {parts.fraction && <span className="opacity-[var(--amount-faded,0.35)]">{parts.fraction}</span>}
+      {parts.fraction && <span className="opacity-[var(--amount-faded,0.7)]">{parts.fraction}</span>}
     </>
   );
 
   const classes = cn(
     "inline-flex items-baseline whitespace-nowrap font-num leading-[0.85] tabular",
     sizeClass[size],
-    sign === "owe" && "text-owe-ink",
-    sign === "owed" && "text-owed-ink",
+    // Red/green text is only just AA: its symbol and decimals stay full strength.
+    sign === "owe" && "text-owe-ink [--amount-faded:1]",
+    sign === "owed" && "text-owed-ink [--amount-faded:1]",
     "transition-[filter] duration-200",
     hidden && "select-none [filter:blur(8px)]",
     className,

@@ -47,6 +47,9 @@ import { GroupSettingsSheet } from "./GroupSettingsSheet";
 import { COVER_FADED, SCRIM_RAMP_HEADER } from "@/lib/images";
 import { CoverBackdrop, CoverScrim } from "./CoverBackdrop";
 import { WelcomeCard } from "./WelcomeCard";
+import { CouldntSync } from "@/components/features/offline/CouldntSync";
+import { overlayBalances, overlayExpenses, overlaySettlements } from "@/lib/offline/overlay";
+import { useOfflineQueue } from "@/lib/offline/useOfflineQueue";
 import { InviteSheet } from "./InviteSheet";
 import { MembersSheet } from "./MembersSheet";
 
@@ -77,9 +80,21 @@ export function GroupScreen({
   const router = useRouter();
   const commandBar = useCommandBar();
   const { data: group } = useGroup(initialGroup.id, initialGroup);
-  const { data: expenses = initialExpenses } = useExpenses(initialGroup.id, initialExpenses);
-  const { data: balances = initialBalances } = useBalances(initialGroup.id, initialBalances);
-  const { data: settlements = initialSettlements } = useSettlements(initialGroup.id, initialSettlements);
+  const { data: serverExpenses = initialExpenses } = useExpenses(initialGroup.id, initialExpenses);
+  const { data: serverBalances = initialBalances } = useBalances(initialGroup.id, initialBalances);
+  const { data: serverSettlements = initialSettlements } = useSettlements(initialGroup.id, initialSettlements);
+  // Offline queue (Milestone 9): queued writes shown on top of what the server last sent.
+  const queue = useOfflineQueue(initialGroup.id);
+  const expenses = useMemo(() => overlayExpenses(serverExpenses, queue.items, initialGroup.id, myUserId), [serverExpenses, queue.items, initialGroup.id, myUserId]);
+  const settlements = useMemo(() => overlaySettlements(serverSettlements, queue.items, initialGroup.id, myUserId), [serverSettlements, queue.items, initialGroup.id, myUserId]);
+  const balances = useMemo(
+    () =>
+      overlayBalances(serverBalances, queue.items, initialGroup.id, myUserId, {
+        expenseClientIds: new Set(serverExpenses.map((e) => e.client_id).filter((x): x is string => !!x)),
+        settlementClientIds: new Set(serverSettlements.map((x) => x.client_id).filter((x): x is string => !!x)),
+      }),
+    [serverBalances, serverExpenses, serverSettlements, queue.items, initialGroup.id, myUserId],
+  );
   const confirmSettlement = useConfirmSettlement(initialGroup.id);
   const disputeSettlement = useDisputeSettlement(initialGroup.id);
   const deleteSettlement = useDeleteSettlement(initialGroup.id);
@@ -128,7 +143,8 @@ export function GroupScreen({
   const params = useSearchParams();
   useEffect(() => {
     const open = params.get("open");
-    if (params.get("tab") === "activity") setTab("activity");
+    const tabParam = params.get("tab");
+    if (tabParam === "activity" || tabParam === "balances") setTab(tabParam);
     if (params.get("settle") === "1") setSettle({ prefill: null });
     if (params.get("welcome") === "1") {
       // One time per group on this device, then drop the flag from the URL.
@@ -265,7 +281,7 @@ export function GroupScreen({
   const typeLabel = GROUP_TYPES.find((t) => t.value === g.type)?.label ?? "Group";
   const cover = !!g.cover_url;
   // Secondary labels: 60% on the pastel; COVER_FADED white over the scrim (AA, lib/images.test.ts).
-  const labelFade = cover ? "opacity-[0.85]" : "opacity-60";
+  const labelFade = cover ? "opacity-[0.85]" : "opacity-75";
 
   return (
     <GroupSocialProvider group={g} myMemberId={me.id}>
@@ -382,12 +398,13 @@ export function GroupScreen({
       </header>
 
       {status === "reconnecting" && (
-        <p role="status" className="mx-5 mt-3 flex items-center justify-center gap-2 text-[12px] font-semibold text-ink/50">
+        <p role="status" className="mx-5 mt-3 flex items-center justify-center gap-2 text-[12px] font-semibold text-ink/60">
           <span className="size-2 animate-pulse rounded-full bg-butter" aria-hidden />
           Reconnecting… changes will catch up
         </p>
       )}
 
+      <CouldntSync group={g} items={queue.items.filter((i) => i.status === "failed")} onEdit={(e) => setEditor({ expense: e })} />
       {welcome && (
         <WelcomeCard
           groupName={g.name}
@@ -438,11 +455,11 @@ export function GroupScreen({
                 type="button"
                 onClick={() => setSheet("members")}
                 aria-label="Add someone"
-                className="flex size-12 items-center justify-center rounded-full border-[1.5px] border-dashed border-ink/30 text-ink/50"
+                className="flex size-12 items-center justify-center rounded-full border-[1.5px] border-dashed border-ink/30 text-ink/60"
               >
                 <UserPlus className="size-5" />
               </button>
-              <span className="text-[12px] font-semibold text-ink/50">Add</span>
+              <span className="text-[12px] font-semibold text-ink/60">Add</span>
             </li>
           )}
         </ul>
@@ -461,7 +478,7 @@ export function GroupScreen({
             onClick={() => setTab(t.id)}
             className={cn(
               "relative h-12 text-[14px] font-semibold transition-colors",
-              tab === t.id ? "text-ink" : "text-ink/40 hover:text-ink/70",
+              tab === t.id ? "text-ink" : "text-ink/60 hover:text-ink/70",
             )}
           >
             {t.label}

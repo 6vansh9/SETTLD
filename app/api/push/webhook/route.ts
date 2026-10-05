@@ -43,7 +43,7 @@ export async function POST(req: Request) {
 
   const ctx: PushContext = { group: { ...group, base_currency: group.base_currency }, members: members as PushMember[] };
   const target =
-    a.kind === "expense_created"
+    a.kind.startsWith("expense_")
       ? { type: "expense" as const, id: a.entity_id }
       : a.kind.startsWith("settlement_")
         ? { type: "settlement" as const, id: a.entity_id }
@@ -53,17 +53,17 @@ export async function POST(req: Request) {
   if (target?.id && target.type === "expense") {
     const { data: e } = await admin
       .from("expenses")
-      .select("id, title, payers:expense_payers(member_id, amount_base), splits:expense_splits(member_id, amount_base)")
+      .select("id, title, amount_base, payers:expense_payers(member_id, amount_base), splits:expense_splits(member_id, amount_base)")
       .eq("id", target.id)
       .maybeSingle();
-    if (e) ctx.expense = { id: e.id, title: e.title, payers: e.payers.map((p) => ({ member_id: p.member_id, amount_base: Number(p.amount_base) })), splits: e.splits.map((s) => ({ member_id: s.member_id, amount_base: Number(s.amount_base) })) };
+    if (e) ctx.expense = { id: e.id, title: e.title, amount_base: Number(e.amount_base), payers: e.payers.map((p) => ({ member_id: p.member_id, amount_base: Number(p.amount_base) })), splits: e.splits.map((s) => ({ member_id: s.member_id, amount_base: Number(s.amount_base) })) };
   } else if (target?.id && target.type === "settlement") {
     const { data: s } = await admin.from("settlements").select("id, from_member, to_member, amount_base").eq("id", target.id).maybeSingle();
     if (s) ctx.settlement = { ...s, amount_base: Number(s.amount_base) };
   }
 
   const messages = pushMessages(a, ctx);
-  if (messages.length === 0) return NextResponse.json({ sent: 0 });
+  if (messages.length === 0) return NextResponse.json({ sent: 0, reason: "no recipients" });
 
   const { data: subs } = await admin
     .from("push_subscriptions")
@@ -82,7 +82,8 @@ export async function POST(req: Request) {
             await webpush.sendNotification(
               { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
               JSON.stringify({ title: m.title, body: m.body, url: m.url, tag: m.tag }),
-              { TTL: 60 * 60 * 24, urgency: a.kind === "nudge_sent" || a.kind.startsWith("settlement_") ? "high" : "normal" },
+              // high: delivered right away even when the phone is idle (iOS/Android may delay "normal")
+              { TTL: 60 * 60 * 24, urgency: "high" },
             );
             used.push(sub.id);
           } catch (err) {
@@ -98,5 +99,6 @@ export async function POST(req: Request) {
   if (used.length) await admin.from("push_subscriptions").update({ last_used_at: new Date().toISOString() }).in("id", used);
 
   const sent = results.filter((r) => r.status === "fulfilled").length;
+  console.info("[push]", a.kind, { recipients: messages.length, devices: subs?.length ?? 0, sent, removed: dead.length });
   return NextResponse.json({ sent, removed: dead.length, failed: results.length - sent - dead.length });
 }

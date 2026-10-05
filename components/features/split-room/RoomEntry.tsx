@@ -55,7 +55,7 @@ export function NewRoomButton({ groupId }: { groupId: string }) {
           <span className="block text-[15px] font-semibold">New Split Room</span>
           <span className="block text-[13px] font-medium text-ink/60">Everyone taps what they had, live</span>
         </span>
-        <ArrowRight className="size-4 text-ink/40" />
+        <ArrowRight className="size-4 text-ink/60" />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="New Split Room">
         <NewRoomForm groupId={groupId} />

@@ -58,7 +58,7 @@ export function SplitBar({ segments, hideLabels = false, className }: SplitBarPr
                 style={{ backgroundColor: pastelVar(s.color) }}
               />
               <span className="micro">{s.name}</span>
-              <span className="font-num text-[18px] leading-none opacity-50">{pcts[i]}%</span>
+              <span className="font-num text-[18px] leading-none opacity-75">{pcts[i]}%</span>
             </li>
           ))}
         </ul>

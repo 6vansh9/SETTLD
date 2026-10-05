@@ -4,10 +4,13 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { useRef } from "react";
 import { useToast } from "@/components/providers/ToastProvider";
 import { friendlyError } from "@/lib/groups";
-import type { CurrencyCode } from "@/lib/money";
+import { formatAmount, type CurrencyCode } from "@/lib/money";
 import { applyDelta, compareNewestFirst, removeById, replaceTemp, settlementDelta, tempId, upsertById } from "@/lib/optimistic";
 import { expenseKeys, refreshMoney } from "@/lib/queries/expenses";
 import { pendingWrites } from "@/lib/realtime/pending";
+import { isQueued, QUEUED, type Queued } from "@/lib/offline/expense-queue";
+import { isNetworkError, isOffline } from "@/lib/offline/net";
+import { enqueue } from "@/lib/offline/store";
 import { countsTowardBalances } from "@/lib/settle";
 import { fetchSettlement, fetchSettlements } from "@/lib/settlements-data";
 import { createClient } from "@/lib/supabase/client";
@@ -80,18 +83,56 @@ export function useRecordSettlement(groupId: string, ctx: { myUserId: string; my
   const fail = useFailureToast();
   const self = useRef<(v: NewSettlement) => void>(() => {});
   const m = useMutation({
-    mutationFn: async (s: NewSettlement) => {
+    mutationFn: async (s: NewSettlement): Promise<Settlement | null | Queued> => {
       const supabase = createClient();
-      const id = await rpc(
-        supabase.rpc("record_settlement", {
-          p_group_id: groupId,
-          p_from_member: s.from,
-          p_to_member: s.to,
-          p_amount: s.amount,
-          p_method: s.method,
-          p_client_id: s.clientId,
-        }),
-      );
+      const params = {
+        p_group_id: groupId,
+        p_from_member: s.from,
+        p_to_member: s.to,
+        p_amount: s.amount,
+        p_method: s.method,
+        p_client_id: s.clientId,
+      };
+      // Offline: queue it with the same client_id (no duplicate payment on retry).
+      const toQueue = async () => {
+        const now = new Date().toISOString();
+        const preview: Settlement = {
+          id: tempId(s.clientId),
+          group_id: groupId,
+          from_member: s.from,
+          to_member: s.to,
+          amount: s.amount,
+          currency: ctx.currency,
+          amount_base: s.amount,
+          method: s.method,
+          status: s.to === ctx.myMemberId ? "confirmed" : "pending",
+          client_id: s.clientId,
+          created_by: ctx.myUserId,
+          created_at: now,
+          updated_at: now,
+          deleted_at: null,
+        };
+        await enqueue({
+          kind: "record_settlement",
+          id: s.clientId,
+          userId: ctx.myUserId,
+          groupId,
+          createdAt: Date.now(),
+          status: "pending",
+          label: `Payment · ${formatAmount(s.amount, ctx.currency)}`,
+          params,
+          preview,
+        });
+        return QUEUED;
+      };
+      if (isOffline()) return toQueue();
+      let id: string;
+      try {
+        id = await rpc(supabase.rpc("record_settlement", params));
+      } catch (err) {
+        if (isNetworkError(err)) return toQueue();
+        throw err;
+      }
       pendingWrites.start(id);
       return fetchSettlement(supabase, id);
     },
@@ -117,7 +158,9 @@ export function useRecordSettlement(groupId: string, ctx: { myUserId: string; my
       });
       return snap;
     },
-    onSuccess: (row, s) => {
+    onSuccess: (row, s, snap) => {
+      // Queued: the overlay shows it ("Waiting to sync") until it reaches the server.
+      if (isQueued(row)) return rollback(qc, groupId, snap);
       qc.setQueryData<Settlement[]>(settlementKeys.list(groupId), (list) => replaceTemp(list, tempId(s.clientId), row));
     },
     onError: (err, s, snap) => {
@@ -125,8 +168,8 @@ export function useRecordSettlement(groupId: string, ctx: { myUserId: string; my
       if (!s.silent) fail("Couldn't record the payment", err, () => self.current(s));
     },
     onSettled: (row, _e, s) => {
-      pendingWrites.finish(s.clientId, row?.id);
-      refreshMoney(qc, groupId);
+      pendingWrites.finish(s.clientId, row && !isQueued(row) ? row.id : null);
+      if (!isQueued(row)) refreshMoney(qc, groupId);
     },
   });
   self.current = m.mutate;

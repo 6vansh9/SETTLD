@@ -67,7 +67,7 @@ export function SharesSheet({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold">
                   {m.id === meId ? "You" : m.display_name}
-                  {m.is_ghost && <span className="ml-1 text-[12px] font-medium text-ink/50">(no phone)</span>}
+                  {m.is_ghost && <span className="ml-1 text-[12px] font-medium text-ink/60">(no phone)</span>}
                 </span>
                 <span className="text-[12px] font-medium text-ink/60">
                   {s > 0 ? (
@@ -155,7 +155,7 @@ export function BreakdownSheet({
             return row(
               <>
                 {it?.name ?? "Item"}
-                {total > 1 && <span className="ml-1 text-[12px] text-ink/50">({s}/{total})</span>}
+                {total > 1 && <span className="ml-1 text-[12px] text-ink/60">({s}/{total})</span>}
               </>,
               l.amount,
             );

@@ -80,7 +80,7 @@ function CreateGroupForm({ defaultCurrency }: { defaultCurrency: CurrencyCode })
             </Chip>
           ))}
         </div>
-        <p className="mt-2 text-[13px] font-medium text-ink/50">Balances are kept in this currency.</p>
+        <p className="mt-2 text-[13px] font-medium text-ink/60">Balances are kept in this currency.</p>
       </div>
 
       {error && (

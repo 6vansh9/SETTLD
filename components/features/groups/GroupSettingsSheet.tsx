@@ -65,7 +65,7 @@ function Segmented<T extends string>({
           aria-checked={value === o.value}
           disabled={disabled}
           onClick={() => onChange(o.value)}
-          className={cn("h-10 rounded-full px-2 text-[13px] font-semibold", value === o.value ? "bg-surface text-ink shadow-sm" : "text-ink/55")}
+          className={cn("h-10 rounded-full px-2 text-[13px] font-semibold", value === o.value ? "bg-surface text-ink shadow-sm" : "text-ink/60")}
         >
           {o.label}
         </button>
@@ -102,7 +102,7 @@ function NotifySetting({ group, myMember }: { group: GroupWithMembers; myMember:
           set.mutate(v, { onError: (e) => (setLevel(prev), setError(friendlyError(e))) });
         }}
       />
-      <p className="mt-2 text-[13px] font-medium text-ink/50">{NOTIFY_HINT[level]} Turn notifications on for this phone in your profile.</p>
+      <p className="mt-2 text-[13px] font-medium text-ink/60">{NOTIFY_HINT[level]} Turn notifications on for this phone in your profile.</p>
       {error && (
         <p role="alert" className="mt-2 text-[13px] font-medium text-owe-ink">
           {error}
@@ -119,7 +119,7 @@ function NudgeSetting({ group }: { group: GroupWithMembers }) {
   return (
     <div className="border-t-[1.5px] border-ink/[0.06] pt-5">
       <p className="text-[15px] font-semibold">Nudges</p>
-      <p className="mt-0.5 text-[13px] font-medium text-ink/50">
+      <p className="mt-0.5 text-[13px] font-medium text-ink/60">
         {mode === "on" ? "Polite, then cheeky, then dramatic." : mode === "polite" ? "Always the polite version." : "Nobody can nudge in this group."}
       </p>
       <Segmented
@@ -211,7 +211,7 @@ function SettingsBody({ group, onDone }: { group: GroupWithMembers; onDone: () =
         <div className="flex items-center justify-between gap-4 border-t-[1.5px] border-ink/[0.06] pt-5">
           <span>
             <span className="block text-[15px] font-semibold">Simplify debts</span>
-            <span className="mt-0.5 block text-[13px] font-medium text-ink/50">
+            <span className="mt-0.5 block text-[13px] font-medium text-ink/60">
               Fewest payments to settle everyone. Off shows every debt as it happened.
             </span>
           </span>

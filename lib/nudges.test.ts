@@ -9,14 +9,14 @@ describe("nudge templates", () => {
         expect(t).toContain("{amount}");
         const s = nudgeText({ level, template: i, name: "Aman Rao", from: "Vansh Gupta", amount: 34000, currency: "INR", days: 9 });
         expect(s).not.toMatch(/[{}]/);
-        expect(s).toContain("₹340.00");
+        expect(s).toContain("₹340");
       });
     }
   });
 
   it("the PRD example (level 3)", () => {
     expect(nudgeText({ level: 3, template: 0, name: "Aman Rao", from: "Vansh", amount: 34000, currency: "INR", days: 9 })).toBe(
-      "Aman. It's been 9 days. The ₹340.00 misses you.",
+      "Aman. It's been 9 days. The ₹340 misses you.",
     );
   });
 

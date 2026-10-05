@@ -185,7 +185,7 @@ export function CommentThread({ type, id }: { type: SocialEntity; id: string }) 
                       type="button"
                       onClick={() => del.mutate(c.id)}
                       aria-label="Delete your comment"
-                      className="-mr-2 flex size-9 shrink-0 items-center justify-center rounded-full text-ink/40 hover:bg-ink/5"
+                      className="-mr-2 flex size-9 shrink-0 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -223,7 +223,7 @@ export function CommentThread({ type, id }: { type: SocialEntity; id: string }) 
               className="block max-h-32 min-h-12 w-full resize-none rounded-2xl border-[1.5px] border-ink/15 bg-surface px-4 py-3 pr-12 text-[16px] font-medium outline-none focus:border-ink"
             />
             {left <= 40 && (
-              <span className={cn("absolute bottom-3.5 right-3 font-num text-[16px] leading-none", left < 0 ? "text-owe-ink" : "text-ink/40")}>{left}</span>
+              <span className={cn("absolute bottom-3.5 right-3 font-num text-[16px] leading-none", left < 0 ? "text-owe-ink" : "text-ink/60")}>{left}</span>
             )}
           </div>
           <button

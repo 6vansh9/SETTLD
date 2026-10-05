@@ -36,7 +36,7 @@ export function FannedCards() {
             <div style={{ "--avatar-ring": pastelVar(c.color) } as React.CSSProperties}>
               <AvatarStack people={PEOPLE} size="sm" />
             </div>
-            <span className="micro opacity-60">{c.label}</span>
+            <span className="micro opacity-75">{c.label}</span>
           </div>
           <p className="mt-4 font-display-alt text-[32px] uppercase leading-[0.9]">{c.name}</p>
           <div className="mt-4 flex justify-end">

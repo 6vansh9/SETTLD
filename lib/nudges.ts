@@ -1,4 +1,4 @@
-import { formatAmount, type CurrencyCode } from "@/lib/money";
+import { formatAmountShort, type CurrencyCode } from "@/lib/money";
 
 /**
  * Escalating nudges (PRD › Personality › Escalating nudges). Level 1 polite, 2 cheeky, 3 dramatic.
@@ -65,7 +65,7 @@ export function nudgeText(o: { level: number; template: number; name: string; fr
   const fill: [string, string][] = [
     ["{name}", first(o.name)],
     ["{from}", first(o.from)],
-    ["{amount}", formatAmount(o.amount, o.currency)],
+    ["{amount}", formatAmountShort(o.amount, o.currency)],
     ["{daycount}", String(Math.max(1, o.days))],
     ["{days}", daysText(o.days)],
   ];

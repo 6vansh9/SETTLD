@@ -11,6 +11,8 @@ export type PushSupport = "supported" | "ios-needs-home-screen" | "unsupported";
 export type PushState = "on" | "off" | "denied";
 
 export const PUSH_ASKED_KEY = "settld-push-asked";
+/** The full-screen "Turn on notifications" step was answered (on, not now, or denied) on this device. */
+export const PUSH_STEP_DONE_KEY = "settld-push-step-done";
 
 export function isIOS(): boolean {
   if (typeof navigator === "undefined") return false;

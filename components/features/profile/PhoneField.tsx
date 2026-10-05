@@ -44,13 +44,13 @@ export function PhoneField({
           <span aria-hidden className="ml-1.5 text-[16px] font-semibold">
             {current.dial}
           </span>
-          <ChevronDown aria-hidden className="pointer-events-none absolute right-2 size-4 text-ink/40" />
+          <ChevronDown aria-hidden className="pointer-events-none absolute right-2 size-4 text-ink/60" />
           {/* Native select on top (invisible): the phone's own picker, searchable on iOS. */}
           <select
             aria-label="Country code"
             value={value.country}
             onChange={(e) => onChange({ ...value, country: e.target.value as CountryCode })}
-            className="absolute inset-0 cursor-pointer opacity-0"
+            className="absolute inset-0 cursor-pointer text-[16px] opacity-0"
           >
             {countries.map((c) => (
               <option key={c.code} value={c.code}>
@@ -77,7 +77,7 @@ export function PhoneField({
           {error}
         </p>
       ) : (
-        hint && <p className="mt-2 text-[13px] font-medium text-ink/50">{hint}</p>
+        hint && <p className="mt-2 text-[13px] font-medium text-ink/60">{hint}</p>
       )}
     </div>
   );

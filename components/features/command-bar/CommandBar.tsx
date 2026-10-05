@@ -165,7 +165,7 @@ export function CommandBar({
               initial={reduce ? { opacity: 0 } : { opacity: 0, y: -16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={reduce ? fade : spring}
-              className="relative mt-[calc(12px+env(safe-area-inset-top))] h-fit max-h-[calc(100dvh-24px-env(safe-area-inset-top))] w-[calc(100%-24px)] max-w-app overflow-y-auto rounded-[28px] border-[1.5px] border-ink/[0.08] bg-surface p-4 text-ink"
+              className="relative mt-[calc(12px+env(safe-area-inset-top))] h-fit max-h-[calc(100dvh-24px-env(safe-area-inset-top))] w-[calc(100%-24px)] max-w-app overflow-y-auto overscroll-contain rounded-[28px] border-[1.5px] border-ink/[0.08] bg-surface p-4 text-ink"
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   e.preventDefault();
@@ -216,7 +216,7 @@ export function CommandBar({
                     setGroupId(e.target.value);
                     setResolved({});
                   }}
-                  className="h-9 max-w-[70%] appearance-none truncate rounded-full border-[1.5px] border-ink/15 bg-bg px-3 pr-7 text-[13px] font-semibold text-ink"
+                  className="h-10 max-w-[70%] appearance-none truncate rounded-full border-[1.5px] border-ink/15 bg-bg px-3 pr-7 text-[16px] font-semibold text-ink"
                   style={group ? { backgroundColor: pastelVar(group.color), color: "#0E0E0E", borderColor: "transparent" } : undefined}
                 >
                   {!parsed.groupId && <option value="">Pick a group</option>}
@@ -290,7 +290,7 @@ export function CommandBar({
                 >
                   <SlidersHorizontal className="size-4" />
                   Full form
-                  <kbd className="hidden rounded border border-ink/20 px-1 text-[11px] text-ink/50 sm:inline">Tab</kbd>
+                  <kbd className="hidden rounded border border-ink/20 px-1 text-[11px] text-ink/60 sm:inline">Tab</kbd>
                 </button>
                 <button
                   type="button"
@@ -399,14 +399,14 @@ function Preview({
           <Icon className="size-5" strokeWidth={2.25} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className={cn("block truncate text-[15px] font-semibold", !parsed.title && "text-ink/35")}>{parsed.title || "What was it?"}</span>
+          <span className={cn("block truncate text-[15px] font-semibold", !parsed.title && "text-ink/60")}>{parsed.title || "What was it?"}</span>
           <span className="mt-1 flex flex-wrap items-baseline gap-1 text-[13px] font-medium text-ink/70">
             <Uncertain i={payerIssue}>{payerIssue ? `“${payerIssue.token ?? "?"}”` : name(parsed.payerId)}</Uncertain>
             paid
             {parsed.amount !== null ? (
               <Amount amount={parsed.amount} currency={parsed.currency} size="sm" className="text-[16px] text-ink" />
             ) : (
-              <span className="text-ink/35">…</span>
+              <span className="text-ink/60">…</span>
             )}
           </span>
           <span className="mt-1 block text-[13px] font-medium text-ink/60">{splitText}</span>

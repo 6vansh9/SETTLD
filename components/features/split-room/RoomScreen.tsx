@@ -98,7 +98,7 @@ export function RoomScreen({
           <Link href={`/g/${g.id}`} aria-label={`Back to ${g.name}`} className="-ml-2 flex size-11 items-center justify-center rounded-full hover:bg-on-pastel/5">
             <ArrowLeft className="size-5" strokeWidth={2.25} />
           </Link>
-          <span className="micro opacity-60">
+          <span className="micro opacity-75">
             {g.emoji} {g.name}
           </span>
           {isHost ? (
@@ -115,11 +115,11 @@ export function RoomScreen({
           )}
         </div>
 
-        <p className="micro mt-4 opacity-60">Split Room · {hoursLeft(d.room.expires_at, now)}</p>
+        <p className="micro mt-4 opacity-75">Split Room · {hoursLeft(d.room.expires_at, now)}</p>
         <h1 className="mt-2 break-words font-display text-[48px] uppercase leading-[0.9]">{d.room.name}</h1>
 
         <div className="mt-5">
-          <p className="micro opacity-60">Bill total</p>
+          <p className="micro opacity-75">Bill total</p>
           <Amount amount={bill.total} currency={currency} size="xl" className="mt-1" />
           <ChargesLine bill={bill} d={d} currency={currency} />
         </div>
@@ -127,7 +127,7 @@ export function RoomScreen({
         <ShareCard code={code} />
 
         <div className="mt-5">
-          <p className="micro mb-2 opacity-60">In the room · {inRoom.length}</p>
+          <p className="micro mb-2 opacity-75">In the room · {inRoom.length}</p>
           <div className="flex flex-wrap gap-1.5" style={{ "--ring": pastelVar(g.color) } as React.CSSProperties}>
             {inRoom.map((m) => (
               <span key={m.id} className="relative">
@@ -138,7 +138,7 @@ export function RoomScreen({
               </span>
             ))}
           </div>
-          {host && <p className="micro mt-2 opacity-60">Host · {host.id === me.id ? "you" : host.display_name}</p>}
+          {host && <p className="micro mt-2 opacity-75">Host · {host.id === me.id ? "you" : host.display_name}</p>}
         </div>
       </header>
 

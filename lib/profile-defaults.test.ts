@@ -33,6 +33,7 @@ describe("normalizeProfile", () => {
       name: "",
       avatar_color: "lilac",
       upi_id: null,
+      upi_opt_out: false,
       default_currency: "INR",
       privacy_blur: false,
       onboarded_at: null,

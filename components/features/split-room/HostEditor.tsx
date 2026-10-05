@@ -130,7 +130,7 @@ function EditorBody({ code, d, currency, onDone }: { code: string; d: RoomData; 
         />
         <div className="mt-2 flex gap-2">
           <div className="relative flex-1">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[16px] font-semibold text-ink/40">{symbol}</span>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[16px] font-semibold text-ink/60">{symbol}</span>
             <input
               value={price}
               onChange={(e) => setPrice(e.target.value)}
@@ -199,7 +199,7 @@ function EditorBody({ code, d, currency, onDone }: { code: string; d: RoomData; 
                 </span>
                 <Amount amount={i.price * i.qty} currency={currency} size="sm" />
               </button>
-              <button type="button" onClick={() => remove(i.id)} aria-label={`Remove ${i.name}`} className="flex size-11 items-center justify-center text-ink/50">
+              <button type="button" onClick={() => remove(i.id)} aria-label={`Remove ${i.name}`} className="flex size-11 items-center justify-center text-ink/60">
                 <X className="size-4" />
               </button>
             </li>
@@ -280,7 +280,7 @@ function ChargesEditor({ d, currency, onSave }: { d: RoomData; currency: Currenc
                       setKinds(nk);
                       commit(nk);
                     }}
-                    className={cn("h-9 min-w-9 rounded-full px-2 text-[14px] font-semibold", kinds[k] === kind ? "bg-surface shadow-sm" : "text-ink/50")}
+                    className={cn("h-9 min-w-9 rounded-full px-2 text-[14px] font-semibold", kinds[k] === kind ? "bg-surface shadow-sm" : "text-ink/60")}
                   >
                     {kind === "percent" ? "%" : CURRENCIES[currency].symbol}
                   </button>

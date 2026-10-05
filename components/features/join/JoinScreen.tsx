@@ -83,7 +83,7 @@ export function JoinScreen({
           {preview.emoji}
         </div>
         <p className="mt-4 break-words font-display text-[48px] uppercase leading-[0.9]">{preview.name}</p>
-        <p className="micro mt-4 opacity-60">
+        <p className="micro mt-4 opacity-75">
           <span className="font-num text-[18px] tracking-normal">{preview.member_count}</span>{" "}
           {preview.member_count === 1 ? "member" : "members"} · splitting live
         </p>
@@ -111,7 +111,7 @@ export function JoinScreen({
           >
             I already have an account
           </Link>
-          <p className="text-center text-[13px] font-medium text-ink/50">It takes 30 seconds. We&apos;ll bring you straight back here.</p>
+          <p className="text-center text-[13px] font-medium text-ink/60">It takes 30 seconds. We&apos;ll bring you straight back here.</p>
         </div>
       ) : details.claim ? (
         <div className="mt-8 space-y-3">
@@ -150,7 +150,7 @@ export function JoinScreen({
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[13px] font-medium text-ink/50">
+              <p className="mt-2 text-[13px] font-medium text-ink/60">
                 Their past expenses and balance move to your account.
               </p>
             </section>

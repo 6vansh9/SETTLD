@@ -23,6 +23,7 @@ export function normalizeProfile(raw: Partial<Record<keyof Profile, unknown>> & 
     name: str(raw.name) ?? "",
     avatar_color: color && (PASTELS as readonly string[]).includes(color) ? (color as Pastel) : "lilac",
     upi_id: str(raw.upi_id)?.trim() || null,
+    upi_opt_out: raw.upi_opt_out === true,
     default_currency: currency && isCurrencyCode(currency) ? currency : "INR",
     privacy_blur: raw.privacy_blur === true,
     onboarded_at: str(raw.onboarded_at),

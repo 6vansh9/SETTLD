@@ -79,3 +79,40 @@ fs.writeFileSync(path.join(dir, "favicon-16.png"), entries[0][1]);
 fs.writeFileSync(path.join(dir, "favicon-32.png"), entries[1][1]);
 
 console.log("icons written to public/brand and public/favicon.ico");
+
+// ------------------------------------------------------------------------------------------------
+// iOS splash screens (apple-touch-startup-image), portrait, light + dark, current iPhones.
+// Light: the pixel S artwork on full coral. Dark: the coral icon tile on near-black.
+// ------------------------------------------------------------------------------------------------
+export const SPLASH_DEVICES = [
+  // [css width, css height, dpr]
+  [440, 956, 3], // 16 Pro Max
+  [402, 874, 3], // 16 Pro
+  [430, 932, 3], // 16 Plus, 15 Pro Max, 15 Plus, 14 Pro Max
+  [393, 852, 3], // 16, 15, 15 Pro, 14 Pro
+  [428, 926, 3], // 14 Plus, 13 Pro Max, 12 Pro Max
+  [390, 844, 3], // 14, 13, 13 Pro, 12, 12 Pro
+  [375, 812, 3], // 13 mini, 12 mini, 11 Pro, XS, X
+  [414, 896, 3], // 11 Pro Max, XS Max
+  [414, 896, 2], // 11, XR
+  [414, 736, 3], // 8 Plus
+  [375, 667, 2], // SE (2nd/3rd gen), 8
+];
+const art = clean.replace(/<rect width="1024" height="1024"[^>]*\/>/, "").replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "").replace(/<title>[\s\S]*?<\/title>/, "");
+const splashDir = path.join(dir, "splash");
+fs.mkdirSync(splashDir, { recursive: true });
+for (const [w, h, dpr] of SPLASH_DEVICES) {
+  const W = w * dpr, H = h * dpr;
+  const size = Math.round(Math.min(W, H) * 0.42);
+  const x = Math.round((W - size) / 2), y = Math.round((H - size) / 2);
+  const k = size / 1024;
+  const light = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="#EE6A4B"/><g transform="translate(${x} ${y}) scale(${k})">${art}</g></svg>`;
+  const tile = Math.round(Math.min(W, H) * 0.3);
+  const tx = Math.round((W - tile) / 2), ty = Math.round((H - tile) / 2);
+  const dark = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="#0E0E0E"/><g transform="translate(${tx} ${ty}) scale(${tile / 1024})"><rect width="1024" height="1024" rx="230" fill="#EE6A4B"/>${art}</g></svg>`;
+  for (const [mode, svg] of [["light", light], ["dark", dark]]) {
+    const out = path.join(splashDir, `splash-${W}x${H}-${mode}.png`);
+    fs.writeFileSync(out, await sharp(Buffer.from(svg)).png({ compressionLevel: 9, palette: true }).toBuffer());
+  }
+}
+console.log(`splash screens: ${SPLASH_DEVICES.length * 2} written to public/brand/splash`);

@@ -14,7 +14,7 @@
   --bg-rgb: 244 241 236;
   --ink: #0e0e0e;
   --ink-rgb: 14 14 14;
-  --ink-faded: rgb(14 14 14 / 0.35);
+  --ink-faded: rgb(14 14 14 / 0.6);
   --surface: #ffffff;
   --surface-rgb: 255 255 255;
   --owe: #e5484d;
@@ -54,7 +54,7 @@
   --bg-rgb: 14 14 14;
   --ink: #f4f1ec;
   --ink-rgb: 244 241 236;
-  --ink-faded: rgb(244 241 236 / 0.35);
+  --ink-faded: rgb(244 241 236 / 0.68);
   --surface: #1a1a1a;
   --surface-rgb: 26 26 26;
   --owe: #ff6369;
@@ -76,7 +76,7 @@
     --bg-rgb: 14 14 14;
     --ink: #f4f1ec;
     --ink-rgb: 244 241 236;
-    --ink-faded: rgb(244 241 236 / 0.35);
+    --ink-faded: rgb(244 241 236 / 0.68);
     --surface: #1a1a1a;
     --surface-rgb: 26 26 26;
     --owe: #ff6369;
@@ -95,11 +95,14 @@
     background: var(--bg);
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    /* No rubber-band bounce dragging the fixed headers/footers around (iOS 16+). */
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-bg font-sans text-ink antialiased;
     min-height: 100dvh;
+    overscroll-behavior: none;
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }

@@ -32,8 +32,8 @@ interface BeforeInstallPromptEvent extends Event {
 
 const STEPS: Record<Platform, { title: string; body: string }[]> = {
   ios: [
-    { title: "Tap Share", body: "The square with an arrow, in Safari's toolbar." },
-    { title: "Add to Home Screen", body: "Scroll the share sheet and tap it." },
+    { title: "Tap Share", body: "The square with an arrow in Safari's toolbar (on newer iPhones, under ••• next to the address)." },
+    { title: "Add to Home Screen", body: "Scroll the share sheet (tap View More if it's hidden), then Add." },
     { title: "Open from your home screen", body: "Settld goes full-screen, and notifications work." },
   ],
   android: [
@@ -189,7 +189,7 @@ function PhoneMock({ platform, stage }: { platform: Platform; stage: number }) {
             transition={spring}
           >
             {["Copy", "Bookmark"].map((t) => (
-              <div key={t} className="rounded-[6px] px-2 py-1.5 text-[9px] font-semibold text-ink/50">
+              <div key={t} className="rounded-[6px] px-2 py-1.5 text-[9px] font-semibold text-ink/60">
                 {t}
               </div>
             ))}

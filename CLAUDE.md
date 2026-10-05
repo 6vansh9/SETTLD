@@ -419,3 +419,54 @@
 - **Removed:** the old generated `/pwa-icon/[size]` route (and its font tracing).
 - **Logo:** `ui/Logo` (icon + SETTLD wordmark) on the landing header and the auth screens.
 - **Fixed:** the favicon 404.
+
+### Milestone 9 — PWA polish (2026-10-05; code complete, v1 **not** marked done until the iPhone/friend checklist passes)
+
+- **Service worker** (`app/sw.ts`, Serwist 9 → generated `public/sw.js`, gitignored; disabled in `next dev`):
+  - Caches: precache, the app shell, fonts, icons, last-viewed group pages and RSC (NetworkFirst, 4 s), Supabase public photos (CacheFirst).
+  - Never cached (NetworkOnly): `/auth/*`, `/api/*`, `/login`, `/signup`, `/onboarding`, `/join/*`, Supabase API calls.
+  - `/~offline` fallback. Data caches are cleared on sign-out and account switch (`lib/sw-client.ts`). Push and notification-tap handlers live in the same worker.
+- **Offline** (`lib/offline/`, `components/providers/AppShell.tsx`):
+  - Reachability is probed against `/api/version`, because `navigator.onLine` lies. Banner: "Offline · showing saved data" / "N waiting to sync" / "N couldn't sync".
+  - Add/edit/delete expense and record settlement queue in IndexedDB (idb-keyval), drawn over the server data (`overlay.ts`, tested) with a "Waiting to sync" badge.
+  - Replay runs in order with the same client_id. A server rejection moves the item to "Couldn't sync" with the reason, plus Edit/Retry/Discard; nothing is dropped.
+  - QueryClient mutations use `networkMode: "always"` (TanStack would otherwise pause them in memory).
+- **Updates:** "New version of Settld · Reload" (waiting worker → SKIP_WAITING, or `/api/version` ≠ `NEXT_PUBLIC_BUILD_SHA`). ChunkLoadError reload kept.
+- **iPhone:** 22 splash screens (light: artwork on coral; dark: coral tile on #0E0E0E), wired via `appleWebApp.startupImage` (`lib/splash.ts`, tested). Also: `overscroll-behavior: none`, 16px inputs, Add to Home Screen copy for newer iOS.
+- **`0011_hardening.sql`:** 15 indexes on unindexed FKs. `supabase/checks/advisors.sql` mirrors the advisor checks. Only intended findings remain: `preview_invite` / `room_preview` are anon-callable.
+- **E2E (Playwright, local Supabase):**
+  - Setup: `npx supabase start` (config.toml ports 563xx; OTP email template), then `PW_CHROMIUM=<Chrome/Brave path> npm run e2e`.
+  - Specs:
+    - `flow.spec.ts`: create → invite → join → expense → settle → confirm; 3 offline expenses → exactly 3 elsewhere; lost response → no duplicate; rejected → Couldn't sync; offline open from the SW.
+    - `push.spec.ts`: real web-push to a local TLS push service, decrypted.
+    - `required.spec.ts`
+    - `a11y.spec.ts`: axe, light and dark, reduced motion.
+- **Contrast (AA, from axe):**
+  - `--ink-faded` 35% → 60% light / 68% dark.
+  - Amount faded parts 35% → 70%; red/green amounts are not faded.
+  - Text below `text-ink/60` raised to `/60`; micro labels on pastels → 75%.
+  - `lib/contrast.test.ts` covers faded ink.
+
+### Required phone/UPI, notification step, push for expenses (2026-10-05, user request)
+
+- **`0012_required_profile_push.sql`** (idempotent; run after 0011):
+  - `profiles.upi_opt_out` ("I don't use UPI (living outside India)": clears the ID, UPI never offered).
+  - Trigger `profiles_guard_upi`: a saved UPI ID can be changed, not cleared (unless opting out).
+  - `set_my_phone` rejects empty: a phone can be changed, not removed.
+  - `update_expense` logs `previous_splits`.
+  - The push trigger now also fires for `expense_updated` / `expense_deleted`, and warns when `private.app_settings` lacks the webhook URL/secret.
+  - Verified on local Postgres: `supabase/checks/0012_checks.sql`, 9 checks.
+- **Push text** (`lib/push-messages.ts`, tested):
+  - Title "Settld · <group>". Amounts drop ".00" (`formatAmountShort`).
+  - Expenses notify only people in the split, never the actor: "Aman added Dinner · ₹2,400 · you owe ₹600" / "you get back ₹1,800" / "your share ₹600". Edits that change my share: "your share is now ₹800". Deletes: "Aman deleted Dinner".
+  - Nudges open `?tab=balances`.
+  - Webhook urgency is always high.
+- **Onboarding** (`lib/onboarding.ts`, tested):
+  - Steps: name → phone → color → UPI (no Skip; opt-out button) → currency → **notify** → home.
+  - `notify` appears only where push works now (Android/desktop/Home Screen app).
+  - iPhone Safari: the guide ends with "Open Settld from your Home Screen to turn on notifications".
+  - `startStep` never resumes past a missing phone/UPI.
+- **`RequiredSetup`** (mounted in providers, app routes only): full-screen "Add your number" → "Add your UPI ID" → (Home Screen app, permission "default", not answered on this device) "Turn on notifications". `NotificationPermission` asks only from the tap; denied → how to re-enable + Continue; answered once (`settld-push-step-done`). `PhonePrompt` (with "Later") removed.
+- **/me:** "Send test notification" (re-saves this device, then a real push through the server; says why it failed). UPI can't be emptied; "Not using UPI" shown for opt-outs.
+- **Nudge debugging:** the code path (nudge → activity → trigger → pg_net → webhook → web-push → `showNotification`) is verified end to end locally (`push.spec.ts`). Vercel runtime logs aren't readable from here (403). If production nudges still don't arrive, check `private.app_settings` has `push_webhook_url` + `push_webhook_secret` and see `net._http_response`.
+- Tests: 380+ unit, 9 E2E.

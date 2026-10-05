@@ -13,7 +13,9 @@ import { cn } from "@/lib/cn";
 import { fade, spring } from "@/lib/motion";
 import type { CurrencyCode } from "@/lib/money";
 import type { Pastel } from "@/lib/pastels";
-import { nextStep, previousStep, stepHref, stepsFor, type OnboardingStep } from "@/lib/onboarding";
+import { nextStep, previousStep, stepHref, stepsFor, type OnboardingEnv, type OnboardingStep } from "@/lib/onboarding";
+import { pushSupport } from "@/lib/push-client";
+import { NotificationPermission } from "@/components/features/push/NotificationPermission";
 import { useProfile, useUpdateProfile } from "@/lib/queries/profile";
 import { useSetMyPhone } from "@/lib/queries/phone";
 import { fromE164, toE164 } from "@/lib/phone";
@@ -28,13 +30,14 @@ const TITLES: Record<OnboardingStep, [string, string]> = {
   color: ["PICK YOUR", "COLOR"],
   upi: ["YOUR", "UPI ID"],
   currency: ["DEFAULT", "CURRENCY"],
+  notify: ["STAY IN", "THE LOOP"],
   home: ["ADD TO", "HOME SCREEN"],
 };
 
 const SAVE_ERROR = "Couldn't save. Check your connection and try again.";
 
 /**
- * Five steps (PRD › Screens › Onboarding). Each step saves its own field before moving on, the
+ * Steps (PRD › Screens › Onboarding; phone and UPI required since 0012, notifications step). Each step saves its own field before moving on, the
  * current step lives in the URL so a reload resumes in place, and onboarded_at is written only
  * when the last step completes.
  */
@@ -66,17 +69,20 @@ export function OnboardingFlow({
   const savePhone = useSetMyPhone();
   const [currency, setCurrency] = useState<CurrencyCode>(initialProfile.default_currency);
   const [error, setError] = useState<string | null>(null);
-  const [standalone, setStandalone] = useState(false);
+  // Where we run decides the steps (lib/onboarding stepsFor). Read once, so answering the
+  // notification prompt doesn't reshuffle the steps under the user.
+  const [env, setEnv] = useState<OnboardingEnv>({ standalone: false, push: "unsupported" });
+  const standalone = env.standalone;
   const [finishing, setFinishing] = useState(false);
 
-  useEffect(() => setStandalone(isStandalone()), []);
+  useEffect(() => setEnv({ standalone: isStandalone(), push: pushSupport() }), []);
 
   // Keep ?step= in sync (no server round trip) so a reload or app switch resumes here.
   useEffect(() => {
     window.history.replaceState(null, "", stepHref(step, next));
   }, [step, next]);
 
-  const steps = stepsFor(standalone);
+  const steps = stepsFor(env);
   const index = steps.indexOf(step);
   const trimmedName = name.trim();
   const busy = update.isPending || savePhone.isPending || finishing;
@@ -109,7 +115,7 @@ export function OnboardingFlow({
       setError(SAVE_ERROR);
       return;
     }
-    const to = nextStep(step, standalone);
+    const to = nextStep(step, env);
     if (to) go(to);
     else await finish();
   };
@@ -138,7 +144,7 @@ export function OnboardingFlow({
               setError(SAVE_ERROR);
               return;
             }
-            const to = nextStep(step, standalone);
+            const to = nextStep(step, env);
             if (to) go(to);
             else await finish();
           },
@@ -148,14 +154,17 @@ export function OnboardingFlow({
         return { label: saving("Next"), disabled: busy, onClick: () => saveAndAdvance({ avatar_color: color }) };
       case "upi":
         return {
-          label: saving(upi.trim() ? "Next" : "Skip for now"),
+          label: saving("Next"),
           disabled: busy,
           onClick: () => {
-            if (upi.trim() && !isValidUpiId(upi)) {
+            if (!upi.trim()) {
+              setError("Add your UPI ID so friends can pay you back.");
+              return;
+            }
+            if (!isValidUpiId(upi)) {
               setError("UPI IDs look like name@bank, e.g. vansh@okhdfcbank.");
               return;
             }
-            // Skip (blank) saves null, never "".
             saveAndAdvance({ upi_id: normalizeUpiId(upi) });
           },
         };
@@ -165,6 +174,9 @@ export function OnboardingFlow({
           disabled: busy,
           onClick: () => saveAndAdvance({ default_currency: currency }),
         };
+      case "notify":
+        // The step has its own buttons (NotificationPermission).
+        return { label: "", disabled: true, onClick: () => undefined };
       case "home":
         return { label: finishing ? "Finishing…" : "Let's go", disabled: busy, onClick: finish };
     }
@@ -175,10 +187,10 @@ export function OnboardingFlow({
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-app flex-col px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-[calc(16px+env(safe-area-inset-top))]">
       <header className="flex h-11 items-center justify-between">
-        {previousStep(step, standalone) && step !== "home" ? (
+        {previousStep(step, env) && step !== "home" ? (
           <button
             type="button"
-            onClick={() => go(previousStep(step, standalone)!)}
+            onClick={() => go(previousStep(step, env)!)}
             aria-label="Back"
             className="-ml-2 flex size-11 items-center justify-center rounded-full hover:bg-ink/5"
           >
@@ -278,7 +290,7 @@ export function OnboardingFlow({
               }}
             >
               <TextField
-                label="UPI ID (optional)"
+                label="UPI ID"
                 autoFocus
                 inputMode="email"
                 autoCapitalize="none"
@@ -298,7 +310,28 @@ export function OnboardingFlow({
 
           {step === "currency" && <CurrencyPicker value={currency} onChange={setCurrency} />}
 
-          {step === "home" && <HomeScreenGuide />}
+          {step === "notify" && (
+            <div className="flex min-h-[340px] flex-col">
+              <NotificationPermission
+                onDone={() => {
+                  const to = nextStep("notify", env);
+                  if (to) go(to);
+                  else void finish();
+                }}
+              />
+            </div>
+          )}
+
+          {step === "home" && (
+            <>
+              <HomeScreenGuide />
+              {env.push === "ios-needs-home-screen" && (
+                <p className="mt-6 rounded-2xl bg-ink/5 px-4 py-3 text-center text-[14px] font-semibold">
+                  Open Settld from your Home Screen to turn on notifications.
+                </p>
+              )}
+            </>
+          )}
         </div>
       </motion.section>
 
@@ -308,10 +341,15 @@ export function OnboardingFlow({
         </p>
       )}
 
-      <div className="mt-6 flex flex-col gap-2">
+      <div className={cn("mt-6 flex flex-col gap-2", step === "notify" && "hidden")}>
         <Button fullWidth disabled={cta.disabled} onClick={cta.onClick}>
           {cta.label}
         </Button>
+        {step === "upi" && (
+          <Button variant="ghost" fullWidth disabled={busy} onClick={() => saveAndAdvance({ upi_id: null, upi_opt_out: true })}>
+            I don&apos;t use UPI (living outside India)
+          </Button>
+        )}
         {step === "home" && (
           <Button variant="ghost" fullWidth onClick={finish} disabled={busy}>
             I&apos;ll do it later

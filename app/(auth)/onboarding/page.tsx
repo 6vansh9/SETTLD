@@ -29,7 +29,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: {
   return (
     <OnboardingFlow
       initialProfile={profile}
-      initialStep={startStep(searchParams.step, profile.name)}
+      initialStep={startStep(searchParams.step, { name: profile.name, hasPhone: !!mine?.phone, hasUpi: !!profile.upi_id || profile.upi_opt_out })}
       initialPhone={initialPhone}
       next={next}
     />

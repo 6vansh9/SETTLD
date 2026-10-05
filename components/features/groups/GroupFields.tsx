@@ -17,7 +17,7 @@ export function GroupPreview({ name, emoji, color }: { name: string; emoji: stri
     >
       <p className="flex items-center gap-2 font-display-alt text-[36px] uppercase leading-[0.9]">
         <span className="text-[30px]">{emoji}</span>
-        <span className={cn("min-w-0 break-words", !name.trim() && "opacity-35")}>{name.trim() || "Group name"}</span>
+        <span className={cn("min-w-0 break-words", !name.trim() && "opacity-70")}>{name.trim() || "Group name"}</span>
       </p>
     </motion.div>
   );

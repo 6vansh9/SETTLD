@@ -63,7 +63,7 @@ export function SettlementSheet({
           <div>
             <div className="flex items-center gap-2">
               {byId.get(s.from_member) && <Avatar {...memberAvatar(byId.get(s.from_member)!)} size="md" />}
-              <ArrowRight className="size-4 text-ink/40" aria-hidden />
+              <ArrowRight className="size-4 text-ink/60" aria-hidden />
               {byId.get(s.to_member) && <Avatar {...memberAvatar(byId.get(s.to_member)!)} size="md" />}
             </div>
             <h2 className="mt-4 font-display-alt text-[36px] uppercase leading-[0.9]">

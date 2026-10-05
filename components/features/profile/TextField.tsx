@@ -43,7 +43,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
           {error}
         </p>
       ) : hint ? (
-        <p id={`${inputId}-hint`} className="mt-2 text-[13px] font-medium text-ink/50">
+        <p id={`${inputId}-hint`} className="mt-2 text-[13px] font-medium text-ink/60">
           {hint}
         </p>
       ) : null}

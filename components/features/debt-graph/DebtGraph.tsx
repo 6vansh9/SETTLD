@@ -134,7 +134,7 @@ export function DebtGraph({
               onClick={() => setSimplified(o.v)}
               className={cn(
                 "h-9 rounded-full px-3 text-[13px] font-semibold transition-colors",
-                simplified === o.v ? "bg-surface text-ink shadow-[0_0_0_1.5px_rgb(var(--ink-rgb)/0.08)]" : "text-ink/50",
+                simplified === o.v ? "bg-surface text-ink shadow-[0_0_0_1.5px_rgb(var(--ink-rgb)/0.08)]" : "text-ink/60",
               )}
             >
               {o.label}
@@ -259,7 +259,7 @@ export function DebtGraph({
           </AnimatePresence>
         </svg>
         {edges.length === 0 && (
-          <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-[13px] font-medium text-ink/50">Nobody owes anybody. 🎉</p>
+          <p className="pointer-events-none absolute inset-x-0 bottom-4 text-center text-[13px] font-medium text-ink/60">Nobody owes anybody. 🎉</p>
         )}
       </div>
 

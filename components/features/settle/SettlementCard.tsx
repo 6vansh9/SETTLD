@@ -1,6 +1,8 @@
 "use client";
 
 import { NewDot } from "@/components/features/social/GroupSocial";
+import { SyncBadge } from "@/components/features/offline/SyncBadge";
+import type { WithSync } from "@/lib/offline/overlay";
 import { ArrowRight } from "lucide-react";
 import { Amount, Avatar } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -61,7 +63,7 @@ export function SettlementCard({
       <button type="button" onClick={onOpen} className="flex w-full items-center gap-3 p-3 text-left">
         <span className="flex shrink-0 items-center gap-1">
           {from && <Avatar {...memberAvatar(from)} size="sm" />}
-          <ArrowRight className="size-3.5 text-ink/40" aria-hidden />
+          <ArrowRight className="size-3.5 text-ink/60" aria-hidden />
           {to && <Avatar {...memberAvatar(to)} size="sm" />}
         </span>
         <span className="min-w-0 flex-1">
@@ -70,6 +72,7 @@ export function SettlementCard({
               {name(from)} paid {name(to)}
             </span>
             <NewDot type="settlement" id={s.id} />
+            <SyncBadge state={(s as WithSync<Settlement>).sync} />
           </span>
           <span className="mt-1 flex items-center gap-1.5">
             <Chip>{METHOD_LABEL[s.method]}</Chip>

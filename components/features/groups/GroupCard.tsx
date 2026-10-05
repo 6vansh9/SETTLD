@@ -49,7 +49,7 @@ export function GroupCard({ group, href, myNet = 0 }: { group: GroupWithMembers;
         <div style={{ "--avatar-ring": pastelVar(group.color) } as React.CSSProperties}>
           <AvatarStack people={people} size="sm" max={4} />
         </div>
-        <span className="micro mr-7 opacity-60">{microDate(group.created_at)}</span>
+        <span className="micro mr-7 opacity-75">{microDate(group.created_at)}</span>
       </div>
       <h3 className="mt-5 flex items-center gap-2 font-display-alt text-[38px] uppercase leading-[0.9]">
         <span aria-hidden className="text-[30px]">
@@ -58,7 +58,7 @@ export function GroupCard({ group, href, myNet = 0 }: { group: GroupWithMembers;
         <span className="min-w-0 break-words">{group.name}</span>
       </h3>
       <div className="mt-4 flex items-end justify-between gap-3">
-        <span className="micro opacity-60">
+        <span className="micro opacity-75">
           {members.length} {members.length === 1 ? "member" : "members"}
         </span>
         <StatusChip net={myNet} currency={group.base_currency} />

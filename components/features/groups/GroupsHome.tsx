@@ -1,6 +1,5 @@
 "use client";
 
-import { PhonePrompt } from "@/components/features/profile/PhonePrompt";
 import { useNudgeBanner } from "@/components/features/social/useNudgeBanner";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -94,7 +93,7 @@ export function GroupsHome({
             </div>
             <p
               className={`mt-3 flex flex-wrap items-baseline gap-1.5 text-[14px] font-semibold ${
-                totals.net > 0 ? "text-owed-ink" : totals.net < 0 ? "text-owe-ink" : "text-ink/50"
+                totals.net > 0 ? "text-owed-ink" : totals.net < 0 ? "text-owe-ink" : "text-ink/60"
               }`}
             >
               {totals.net === 0 ? (
@@ -104,11 +103,11 @@ export function GroupsHome({
                   {totals.net > 0 ? "Overall you're owed" : "Overall you owe"}
                   {totals.approx && <span aria-hidden>≈</span>}
                   <AnimatedAmount amount={Math.abs(totals.net)} currency={me.default_currency} size="sm" className="text-[18px]" />
-                  {totals.approx && <span className="text-[12px] font-medium text-ink/50">· approx.</span>}
+                  {totals.approx && <span className="text-[12px] font-medium text-ink/60">· approx.</span>}
                 </>
               )}
             </p>
-            {totals.approx && <p className="mt-1 text-[12px] font-medium text-ink/50">Other currencies converted at today&apos;s rates.</p>}
+            {totals.approx && <p className="mt-1 text-[12px] font-medium text-ink/60">Other currencies converted at today&apos;s rates.</p>}
             {/* Only if no rate exists at all (API down and nothing cached): kept separate, exact. */}
             {totals.unconverted.map((u) => (
               <p key={u.currency} className="mt-1 flex flex-wrap items-baseline gap-1.5 text-[12px] font-semibold text-ink/60">
@@ -152,7 +151,7 @@ export function GroupsHome({
                   Archived <span className="font-num">{archived.length}</span>
                 </span>
                 <motion.span animate={{ rotate: showArchived ? 180 : 0 }} transition={reduce ? fade : spring}>
-                  <ChevronDown className="size-5 text-ink/50" />
+                  <ChevronDown className="size-5 text-ink/60" />
                 </motion.span>
               </button>
               <AnimatePresence initial={false}>
@@ -177,7 +176,6 @@ export function GroupsHome({
         </>
       )}
 
-      <PhonePrompt />
       <BottomTabBar />
       <CreateGroupSheet open={creating} onClose={() => setCreating(false)} defaultCurrency={me.default_currency} />
     </main>

@@ -221,8 +221,8 @@ function PersonRow({
       {member ? <Avatar {...memberAvatar(member)} size="sm" /> : <Avatar name={name} size="sm" ghost />}
       <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">
         {name}
-        {member?.left_at && <span className="text-ink/40"> · left</span>}
-        {hint && <span className="ml-2 text-[13px] font-medium text-ink/50">{hint}</span>}
+        {member?.left_at && <span className="text-ink/60"> · left</span>}
+        {hint && <span className="ml-2 text-[13px] font-medium text-ink/60">{hint}</span>}
       </span>
       <Amount amount={amount} currency={currency} size="sm" />
     </li>

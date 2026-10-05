@@ -3,6 +3,7 @@ import { Anton, Big_Shoulders_Display, Inter, Jersey_10 } from "next/font/google
 import { themeScript } from "@/components/providers/ThemeProvider";
 import Script from "next/script";
 import { compatScript } from "@/lib/compat";
+import { splashScreens } from "@/lib/splash";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
   title: "Settld",
   description: "Split it. Settle it. Shared expenses, live.",
   // Home Screen app on iPhone (standalone), which is also what enables Web Push there.
-  appleWebApp: { capable: true, title: "Settld", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Settld", statusBarStyle: "default", startupImage: splashScreens() },
   // Generated from public/brand/settld-icon-pixel.svg by scripts/build-icons.mjs.
   icons: {
     icon: [

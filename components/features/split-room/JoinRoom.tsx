@@ -21,7 +21,7 @@ export function JoinRoom({ code, preview }: { code: string; preview: RoomPreview
         style={{ backgroundColor: pastelVar(preview.color) }}
         aria-labelledby="join-room-title"
       >
-        <p className="micro opacity-60">Split Room · {code}</p>
+        <p className="micro opacity-75">Split Room · {code}</p>
         <h1 id="join-room-title" className="mt-3 break-words font-display text-[52px] uppercase leading-[0.9]">
           {preview.room_name}
         </h1>

@@ -10,6 +10,22 @@ import { friendlyError } from "@/lib/groups";
 import { applyDelta, compareExpenses, expenseDelta, removeById, replaceTemp, tempId, upsertById } from "@/lib/optimistic";
 import { groupKeys } from "@/lib/queries/groups";
 import { pendingWrites } from "@/lib/realtime/pending";
+import {
+  cancelQueuedDelete,
+  createParams,
+  currentUserId,
+  discardQueuedCreate,
+  isQueued,
+  patchQueuedCreate,
+  previewExpense,
+  queueCreate,
+  queueDelete,
+  queueUpdate,
+  QUEUED,
+  updateParams,
+  type Queued,
+} from "@/lib/offline/expense-queue";
+import { isNetworkError, isOffline } from "@/lib/offline/net";
 import { createClient } from "@/lib/supabase/client";
 import type { GroupBalance } from "@/lib/supabase/types";
 
@@ -73,6 +89,12 @@ function linesOf(args: ExpenseRpcArgs) {
   };
 }
 
+/** One quiet note when something goes into the offline queue. */
+function useSavedOfflineToast() {
+  const { show } = useToast();
+  return () => show({ message: "Saved on this phone · syncs when you're back online", duration: 4000 });
+}
+
 /** Shows "Couldn't save … · Retry" and re-runs the same mutation (same client_id = no duplicates). */
 function useFailureToast() {
   const { show } = useToast();
@@ -92,27 +114,27 @@ export function useCreateExpense(defaultGroupId: string, myUserId: string) {
   const qc = useQueryClient();
   const fail = useFailureToast();
   const offerPush = usePushPrompt();
+  const savedOffline = useSavedOfflineToast();
   const self = useRef<(v: CreateVars) => void>(() => {});
   const m = useMutation({
-    mutationFn: async ({ args, clientId, groupId: g }: CreateVars) => {
+    mutationFn: async ({ args, clientId, groupId: g }: CreateVars): Promise<ExpenseWithLines | null | Queued> => {
       const groupId = g ?? defaultGroupId;
       const supabase = createClient();
-      const id = await rpc(
-        supabase.rpc("create_expense", {
-          p_group_id: groupId,
-          p_title: args.title,
-          p_amount: args.amount,
-          p_currency: args.currency,
-          p_fx_rate: args.fxRate,
-          p_category: args.category,
-          p_date: args.date,
-          p_note: args.note,
-          p_split_type: args.splitType,
-          p_payers: args.payers,
-          p_splits: args.splits,
-          p_client_id: clientId,
-        }),
-      );
+      // Offline (or the request never got through): keep it in the queue, sync later, same client_id.
+      const toQueue = async () => {
+        const now = new Date().toISOString();
+        const preview = previewExpense({ id: tempId(clientId), group_id: groupId, created_by: myUserId, client_id: clientId, created_at: now }, args);
+        await queueCreate(myUserId, groupId, clientId, args, preview);
+        return QUEUED;
+      };
+      if (isOffline()) return toQueue();
+      let id: string;
+      try {
+        id = await rpc(supabase.rpc("create_expense", createParams(args, clientId, groupId) as never));
+      } catch (err) {
+        if (isNetworkError(err)) return toQueue();
+        throw err;
+      }
       pendingWrites.start(id);
       return fetchExpense(supabase, id);
     },
@@ -145,8 +167,14 @@ export function useCreateExpense(defaultGroupId: string, myUserId: string) {
       qc.setQueryData<GroupBalance[]>(expenseKeys.balances(groupId), (b) => (b ? applyDelta(b, expenseDelta(payers, splits)) : b));
       return snap;
     },
-    onSuccess: (row, { clientId, groupId: g }) => {
+    onSuccess: (row, { clientId, groupId: g }, snap) => {
       const groupId = g ?? defaultGroupId;
+      if (isQueued(row)) {
+        // The queue overlay shows it from now on (with "Waiting to sync"), so undo the cache edit.
+        rollback(qc, groupId, snap);
+        savedOffline();
+        return;
+      }
       qc.setQueryData<ExpenseWithLines[]>(expenseKeys.list(groupId), (list) => replaceTemp(list, tempId(clientId), row));
       offerPush();
     },
@@ -155,8 +183,8 @@ export function useCreateExpense(defaultGroupId: string, myUserId: string) {
       fail(`Couldn't add “${vars.args.title}”`, err, () => self.current(vars));
     },
     onSettled: (row, _e, { clientId, groupId: g }) => {
-      pendingWrites.finish(clientId, row?.id);
-      refreshMoney(qc, g ?? defaultGroupId);
+      pendingWrites.finish(clientId, row && !isQueued(row) ? row.id : null);
+      if (!isQueued(row)) refreshMoney(qc, g ?? defaultGroupId);
     },
   });
   self.current = m.mutate;
@@ -171,31 +199,38 @@ export interface UpdateVars {
 export function useUpdateExpense(groupId: string) {
   const qc = useQueryClient();
   const fail = useFailureToast();
+  const savedOffline = useSavedOfflineToast();
+  const beforeEdit = useRef<ExpenseWithLines | null>(null);
   const self = useRef<(v: UpdateVars) => void>(() => {});
   const m = useMutation({
-    mutationFn: async ({ expenseId, args }: UpdateVars) => {
+    mutationFn: async ({ expenseId, args }: UpdateVars): Promise<ExpenseWithLines | null | Queued> => {
+      // Still waiting to sync (or couldn't): change the queued create itself.
+      if (expenseId.startsWith("temp-")) {
+        if (await patchQueuedCreate(expenseId.slice(5), args)) return QUEUED;
+        throw new Error("Still saving that one. Try again in a moment.");
+      }
       const supabase = createClient();
-      await rpc(
-        supabase.rpc("update_expense", {
-          p_expense_id: expenseId,
-          p_title: args.title,
-          p_amount: args.amount,
-          p_currency: args.currency,
-          p_fx_rate: args.fxRate,
-          p_category: args.category,
-          p_date: args.date,
-          p_note: args.note,
-          p_split_type: args.splitType,
-          p_payers: args.payers,
-          p_splits: args.splits,
-        }),
-      );
+      const toQueue = async () => {
+        const userId = await currentUserId();
+        const before = qc.getQueryData<ExpenseWithLines[]>(expenseKeys.list(groupId))?.find((e) => e.id === expenseId) ?? beforeEdit.current;
+        if (!userId || !before) throw new Error("You're offline. Check your connection and try again.");
+        await queueUpdate(userId, before, args);
+        return QUEUED;
+      };
+      if (isOffline()) return toQueue();
+      try {
+        await rpc(supabase.rpc("update_expense", updateParams(expenseId, args) as never));
+      } catch (err) {
+        if (isNetworkError(err)) return toQueue();
+        throw err;
+      }
       return fetchExpense(supabase, expenseId);
     },
     onMutate: async ({ expenseId, args }) => {
       pendingWrites.start(expenseId);
       const snap = await snapshot(qc, groupId);
       const old = snap.list?.find((e) => e.id === expenseId);
+      beforeEdit.current = old ?? null;
       if (old) {
         const { payers, splits } = linesOf(args);
         const next: ExpenseWithLines = {
@@ -218,16 +253,21 @@ export function useUpdateExpense(groupId: string) {
       }
       return snap;
     },
-    onSuccess: (row) => {
+    onSuccess: (row, _v, snap) => {
+      if (isQueued(row)) {
+        rollback(qc, groupId, snap);
+        savedOffline();
+        return;
+      }
       if (row) qc.setQueryData<ExpenseWithLines[]>(expenseKeys.list(groupId), (list) => upsertById(list, row, compareExpenses));
     },
     onError: (err, vars, snap) => {
       rollback(qc, groupId, snap);
       fail(`Couldn't save “${vars.args.title}”`, err, () => self.current(vars));
     },
-    onSettled: (_r, _e, { expenseId }) => {
+    onSettled: (row, _e, { expenseId }) => {
       pendingWrites.finish(expenseId);
-      refreshMoney(qc, groupId);
+      if (!isQueued(row)) refreshMoney(qc, groupId);
     },
   });
   self.current = m.mutate;
@@ -240,7 +280,27 @@ export function useDeleteExpense(groupId: string) {
   const fail = useFailureToast();
   const self = useRef<(e: ExpenseWithLines) => void>(() => {});
   const m = useMutation({
-    mutationFn: (e: ExpenseWithLines) => rpc(createClient().rpc("delete_expense", { p_expense_id: e.id })),
+    mutationFn: async (e: ExpenseWithLines): Promise<null | Queued> => {
+      // Never reached the server: just drop it from the queue.
+      if (e.id.startsWith("temp-")) {
+        if (await discardQueuedCreate(e.id.slice(5))) return QUEUED;
+        throw new Error("Still saving that one. Try again in a moment.");
+      }
+      const toQueue = async () => {
+        const userId = await currentUserId();
+        if (!userId) throw new Error("You're offline. Check your connection and try again.");
+        await queueDelete(userId, e);
+        return QUEUED;
+      };
+      if (isOffline()) return toQueue();
+      try {
+        await rpc(createClient().rpc("delete_expense", { p_expense_id: e.id }));
+      } catch (err) {
+        if (isNetworkError(err)) return toQueue();
+        throw err;
+      }
+      return null;
+    },
     onMutate: async (e) => {
       pendingWrites.start(e.id);
       const snap = await snapshot(qc, groupId);
@@ -248,13 +308,17 @@ export function useDeleteExpense(groupId: string) {
       qc.setQueryData<GroupBalance[]>(expenseKeys.balances(groupId), (b) => (b ? applyDelta(b, expenseDelta(e.payers, e.splits), -1) : b));
       return snap;
     },
+    onSuccess: (r, _e, snap) => {
+      // Queued delete: the overlay hides the row; put the cache back as the server has it.
+      if (isQueued(r)) rollback(qc, groupId, snap);
+    },
     onError: (err, e, snap) => {
       rollback(qc, groupId, snap);
       fail(`Couldn't delete “${e.title}”`, err, () => self.current(e));
     },
-    onSettled: (_r, _e, e) => {
+    onSettled: (r, _e, e) => {
       pendingWrites.finish(e.id);
-      refreshMoney(qc, groupId);
+      if (!isQueued(r)) refreshMoney(qc, groupId);
     },
   });
   self.current = m.mutate;
@@ -267,7 +331,12 @@ export function useRestoreExpense(groupId: string) {
   const fail = useFailureToast();
   const self = useRef<(e: ExpenseWithLines) => void>(() => {});
   const m = useMutation({
-    mutationFn: (e: ExpenseWithLines) => rpc(createClient().rpc("restore_expense", { p_expense_id: e.id })),
+    mutationFn: async (e: ExpenseWithLines) => {
+      // Undo before the delete synced: cancel the queued delete (or the queued create came back).
+      if (await cancelQueuedDelete(e.id)) return QUEUED;
+      if (e.id.startsWith("temp-")) throw new Error("That one was never saved, so there's nothing to restore.");
+      return rpc(createClient().rpc("restore_expense", { p_expense_id: e.id }));
+    },
     onMutate: async (e) => {
       pendingWrites.start(e.id);
       const snap = await snapshot(qc, groupId);

@@ -75,11 +75,11 @@ function MembersBody({ group, myUserId, isAdmin }: { group: GroupWithMembers; my
       {editable && <AddGhostForm group={group} onStatus={setStatus} />}
 
       {!isAdmin && (
-        <p className="mt-6 text-center text-[13px] font-medium text-ink/50">Only admins can add or remove people.</p>
+        <p className="mt-6 text-center text-[13px] font-medium text-ink/60">Only admins can add or remove people.</p>
       )}
 
       {editable && (
-        <p className="mt-4 text-center text-[12px] font-medium text-ink/50">
+        <p className="mt-4 text-center text-[12px] font-medium text-ink/60">
           People can only be removed once their balance is zero. They stay on past expenses.
         </p>
       )}
@@ -123,7 +123,7 @@ function MemberRow({
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-semibold">
           {member.display_name}
-          {isMe && <span className="text-ink/40"> (you)</span>}
+          {isMe && <span className="text-ink/60"> (you)</span>}
         </p>
         <p className="micro mt-1 text-ink-faded">
           {member.role === "admin" ? "Admin" : member.is_ghost ? "Not joined yet" : "Member"}
@@ -266,14 +266,14 @@ function AddGhostForm({
             phone={added.phone}
             onAddedPhone={(p) => setAdded({ ...added, phone: p })}
           />
-          <button type="button" onClick={() => setAdded(null)} className="mt-2 h-10 w-full text-[13px] font-semibold text-ink/50">
+          <button type="button" onClick={() => setAdded(null)} className="mt-2 h-10 w-full text-[13px] font-semibold text-ink/60">
             Done
           </button>
         </div>
       )}
       <form onSubmit={submit} noValidate>
         <p className="text-[15px] font-semibold">Add someone</p>
-        <p className="mt-0.5 text-[13px] font-medium text-ink/50">They can be in expenses now and take the spot when they join.</p>
+        <p className="mt-0.5 text-[13px] font-medium text-ink/60">They can be in expenses now and take the spot when they join.</p>
         {canPick && (
           <Button type="button" variant="secondary" fullWidth className="mt-3 h-11" onClick={fromContacts}>
             <Contact className="size-4" />

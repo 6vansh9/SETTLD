@@ -1,6 +1,8 @@
 "use client";
 
 import { NewDot } from "@/components/features/social/GroupSocial";
+import { SyncBadge } from "@/components/features/offline/SyncBadge";
+import type { WithSync } from "@/lib/offline/overlay";
 import { SettlementCard } from "@/components/features/settle/SettlementCard";
 import { Amount } from "@/components/ui";
 import { myPositionOnExpense } from "@/lib/balances";
@@ -123,13 +125,14 @@ function ExpenseRow({
         <span className="flex items-center gap-1.5">
           <span className="block truncate text-[15px] font-semibold">{e.title}</span>
           <NewDot type="expense" id={e.id} />
+          <SyncBadge state={(e as WithSync<ExpenseWithLines>).sync} />
         </span>
-        <span className="mt-1 flex items-baseline gap-1 text-[12px] font-medium text-ink/60">
-          {payer} paid <Amount amount={e.amount} currency={e.currency} size="sm" className="text-[15px] text-ink/70" />
+        <span className="mt-1 flex items-baseline gap-1 text-[12px] font-medium text-ink/75">
+          {payer} paid <Amount amount={e.amount} currency={e.currency} size="sm" className="text-[15px] text-ink" />
           {e.currency !== group.base_currency && (
             // Foreign expense: show what it counts as in the group's currency too, e.g. "$40 (₹3,340)".
             <span className="flex items-baseline">
-              (<Amount amount={e.amount_base} currency={group.base_currency} size="sm" className="text-[15px] text-ink/50" />)
+              (<Amount amount={e.amount_base} currency={group.base_currency} size="sm" className="text-[15px] text-ink/60" />)
             </span>
           )}
         </span>

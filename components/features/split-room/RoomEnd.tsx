@@ -82,13 +82,13 @@ function Summary({ data, group, bill, myMemberId }: { data: RoomData; group: Gro
         >
           Settld ✓
         </span>
-        <p className="micro opacity-60">
+        <p className="micro opacity-75">
           {group.emoji} {group.name} · Split Room
         </p>
         <h1 id="summary-title" className="mt-3 max-w-[75%] break-words font-display text-[44px] uppercase leading-[0.9]">
           {data.room.name}
         </h1>
-        <p className="micro mt-5 opacity-60">Bill total</p>
+        <p className="micro mt-5 opacity-75">Bill total</p>
         <Amount amount={bill.total} currency={group.base_currency} size="hero" className="mt-1" />
         {payer && <p className="mt-2 text-[14px] font-semibold opacity-70">Paid by {name(payer.id)}</p>}
 

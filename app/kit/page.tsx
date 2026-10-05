@@ -173,7 +173,7 @@ function CardsSection() {
       <Card color="butter" dogEar>
         <div className="flex items-start justify-between">
           <AvatarStack people={PEOPLE.slice(0, 3)} size="sm" className="[--avatar-ring:var(--butter)]" />
-          <span className="micro opacity-60">Today</span>
+          <span className="micro opacity-75">Today</span>
         </div>
         <h3 className="mt-6 font-display-alt text-[40px] uppercase leading-[0.9]">
           Cab to
@@ -181,7 +181,7 @@ function CardsSection() {
           airport
         </h3>
         <div className="mt-6 flex items-end justify-between">
-          <span className="micro opacity-60">Paid by Aman</span>
+          <span className="micro opacity-75">Paid by Aman</span>
           <Amount amount={60000} currency="INR" size="xl" />
         </div>
       </Card>
@@ -215,7 +215,7 @@ function GroupCard({ name, emoji, color, date, members, balance, currency }: (ty
         <div style={{ "--avatar-ring": `var(--${color})` } as React.CSSProperties}>
           <AvatarStack people={PEOPLE.slice(0, members)} size="sm" max={3} />
         </div>
-        <span className="micro mr-6 opacity-60">{date}</span>
+        <span className="micro mr-6 opacity-75">{date}</span>
       </div>
       <h3 className="mt-5 flex items-center gap-2 font-display-alt text-[38px] uppercase leading-[0.9]">
         <span aria-hidden className="text-[28px]">
@@ -224,7 +224,7 @@ function GroupCard({ name, emoji, color, date, members, balance, currency }: (ty
         {name}
       </h3>
       <div className="mt-4 flex items-end justify-between">
-        <span className="micro opacity-60">
+        <span className="micro opacity-75">
           {settled ? "All settled" : owe ? "You owe" : "You're owed"}
         </span>
         <Amount amount={Math.abs(balance)} currency={currency} size="lg" />
@@ -252,7 +252,7 @@ function SplitBarSection() {
     <Section n={4} title="Split bar">
       <Card color="lilac">
         <div className="flex items-end justify-between">
-          <p className="micro opacity-60">Dinner · 3 people</p>
+          <p className="micro opacity-75">Dinner · 3 people</p>
           <Amount amount={240000} currency="INR" size="md" />
         </div>
         <SplitBar segments={three} className="mt-4" />
@@ -337,7 +337,7 @@ function ButtonsSection() {
         <Label>Settle footer</Label>
         <div className="overflow-hidden rounded-card border-[1.5px] border-ink/[0.08]">
           <div className="bg-pink px-5 pb-10 pt-5 text-on-pastel">
-            <p className="micro opacity-60">Goa trip · you owe</p>
+            <p className="micro opacity-75">Goa trip · you owe</p>
             <Amount amount={340050} currency="INR" size="xl" className="mt-2" />
           </div>
           <Button variant="footer" className="-mt-6">

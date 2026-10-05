@@ -77,7 +77,7 @@ Titles often run two lines with the second line in a faded color: **SETTLD** bla
 
 ### The faded-digit rule
 
-Every money amount splits into a strong part and a faded part. The currency symbol and decimals render at 35% opacity; the whole number is full strength. Example: ₹ (faded) **1,240** (bold) .50 (faded). Build this once as an `<Amount />` component and use it everywhere.
+Every money amount splits into a strong part and a faded part. The currency symbol and decimals render at 70% opacity (raised from 35% to meet WCAG AA, including on pastels; `--ink-faded` is 60% light, 68% dark); the whole number is full strength. Example: ₹ (faded) **1,240** (bold) .50 (faded). Build this once as an `<Amount />` component and use it everywhere.
 
 ### Color
 
@@ -133,7 +133,7 @@ Pastels stay pastel in dark mode, with black text on top, so cards glow against 
 | # | Screen | Route | Layout notes |
 | --- | --- | --- | --- |
 | 1 | Landing | `/` | Giant SPLIT / IT / SETTLD stacked title, faded second line; three pastel cards fanned below; Continue with Google + email |
-| 2 | Onboarding | `/onboarding` | Name, phone number (required; country picker, +91 default; prefilled from a personal invite), avatar (optional photo: Add photo / Use my Google photo; color as the fallback and photo ring), UPI ID (optional), default currency; last step = animated Add to Home Screen guide |
+| 2 | Onboarding | `/onboarding` | Name, phone number (required; country picker, +91 default; prefilled from a personal invite), avatar (optional photo: Add photo / Use my Google photo; color as the fallback and photo ring), UPI ID (required, or "I don't use UPI (living outside India)"), default currency, Turn on notifications (where push works: Android, desktop, the iPhone Home Screen app), Add to Home Screen guide (skipped when installed; in iPhone Safari it ends with "Open Settld from your Home Screen to turn on notifications") |
 | 3 | Home (Groups) | `/groups` | Title SETTLD / GROUPS; overall balance in Jersey 10; stacked group cards with dog-ear, date, members, your balance; a tinted strip of the group background photo at the top when there is one |
 | 4 | Group | `/g/[id]` | Pastel header with emoji + name (over the group background photo under a pastel tint when set; admins set it in Group settings); balance split bar; tabs: Expenses, Balances, Graph, Activity; coral SETTLE UP footer |
 | 5 | Expense detail | sheet | Big amount, payer, split bar, per-person rows, reactions row, comment thread, edit and delete |
@@ -145,7 +145,7 @@ Pastels stay pastel in dark mode, with black text on top, so cards glow against 
 | 11 | Split Room | `/room/[code]` | Live bill: item cards, avatars of who tapped each, running per-person totals, QR to join, Finalize button |
 | 12 | Join group | `/join/[token]` | Preview card (group name, color, members); Join, or claim a ghost member slot |
 | 13 | Activity | `/activity` | Timeline across all groups, grouped by day, with group color stripe |
-| 14 | Profile | `/me` | Avatar (tap: Add / Change / Remove photo, Use my Google photo, avatar color), phone (private), UPI ID, default currency, theme, privacy blur default, sign out |
+| 14 | Profile | `/me` | Avatar (tap: Add / Change / Remove photo, Use my Google photo, avatar color), phone (private; can be changed, not removed), UPI ID (can be changed, not removed; or "I don't use UPI"), default currency, notifications (on/off, Send test notification), theme, privacy blur default, sign out |
 
 **Empty states** are designed, not blank: a single huge faded word (NOTHING / YET) with one CTA.
 
@@ -279,10 +279,16 @@ Poster-style card: payer → receiver in Anton, amount in Jersey 10, group name 
 
 ### Notifications
 
-- Push for: an expense involving me, someone paid me, my payment confirmed/disputed, a comment on something I'm in, nudges. Never my own actions.
-- Permission is only requested from a tap: "Turn on notifications" on /me, or the one-time offer after my first expense. In iPhone Safari (not from the Home Screen) /me shows Add to Home Screen steps instead.
+- Push for: an expense involving me, someone paid me, my payment confirmed/disputed, a comment on something I'm in, nudges, a ghost I added joining. Never my own actions. The service worker always calls `showNotification`, also when the app is open, so every push lands in the notification centre.
+- Title: "Settld · <group name>". Expense pushes go only to people in the split (share > 0), never to whoever added, edited or deleted it:
+  - added: "Aman added Dinner · ₹2,400 · you owe ₹600" (I owe), "… · you get back ₹1,800" (I paid and others owe me), "… · your share ₹600" (I paid exactly my share). Tapping opens that expense.
+  - edited so my share changed (including newly added to it): "Aman changed Dinner · your share is now ₹800". Tapping opens that expense.
+  - deleted: "Aman deleted Dinner". Tapping opens the group's activity.
+- Nudges push the nudge text ("Aman. It's been 9 days. The ₹340 misses you."); tapping opens the group's Balances tab. Amounts in push text drop ".00".
+- Permission is only requested from a tap, never on load: the onboarding step "Turn on notifications" (Android/desktop, or the iPhone Home Screen app), "Turn on notifications" on /me, or the one-time offer after my first expense. iPhone: push works only in the Home Screen app, so onboarding in Safari ends with the Add to Home Screen guide and "Open Settld from your Home Screen to turn on notifications"; the first time the Home Screen app opens without permission, a full-screen "Turn on notifications" card shows before the app. Denied → how to re-enable in Settings, then Continue; it never asks again by itself (answered once per device).
+- /me › Notifications has "Send test notification": a real push to my own devices through the same server path, with a clear reason when it fails (no device registered, push service refused).
 - Per group, per person (group settings, visible to every member): All / Only money stuff / Off. Dead subscriptions (404/410) are removed.
-- A minimal push-only service worker (`/sw.js`) and a web app manifest (standalone) ship now; offline caching is Milestone 9.
+- The service worker (`app/sw.ts`, Serwist, built to `/sw.js`) handles push, taps and offline caching (Milestone 9).
 
 ### Escalating nudges
 
@@ -322,6 +328,7 @@ All money is stored as `bigint` minor units (paise, cents) with a `currency` cod
 | `split_room_claims` | item_id, member_id, shares | |
 | `fx_rates` | base, quote, rate, fetched_at | 6 h cache |
 | `push_subscriptions` | user_id, endpoint, keys jsonb | Web Push |
+| `profiles.upi_opt_out` | boolean | "I don't use UPI" (0012) |
 
 **Balances** are computed by a Postgres view `group_balances` (paid − owed ± settlements per member) so every client reads the same numbers. Simplification runs on the client from that view.
 
@@ -339,7 +346,13 @@ All money is stored as `bigint` minor units (paise, cents) with a `currency` cod
 
 - Phone numbers are **not verified** (no SMS OTP yet), so a number never grants access and never claims a ghost by itself. The personal claim link stays the only proof for taking a ghost's spot.
 - Private: never shown to other users. Stored outside `profiles` (`user_phones`: owner only; `ghost_phones`: that group's admins only). E.164, validated with libphonenumber-js.
-- Required at sign-up (onboarding step after name, +91 default); existing users get a one-time prompt with "Later"; editable on /me.
+- Required at sign-up (onboarding step after name, +91 default; onboarding can't finish without a valid number). Existing users without one see a blocking full-screen "Add your number" before using the app (no Later). Editable on /me; can be changed, never removed (`set_my_phone` rejects empty).
+
+### UPI ID
+
+- Required: onboarding has no Skip, and existing users without one see a blocking full-screen "Add your UPI ID" before using the app. Same format check as before (`UPI_ID_PATTERN`).
+- Exception: "I don't use UPI (living outside India)" sets `profiles.upi_opt_out` (and clears the ID), so Pay via UPI is never offered when people settle with them. Saving an ID later clears the flag.
+- On /me it can be changed but not cleared; a database trigger (0012) rejects clearing a saved ID unless opting out.
 - Add someone (admins): name + optional phone; "Pick from contacts" only where the Contact Picker API exists (Android Chrome), hidden on iPhone. After saving, and from "Send invite" on any unclaimed ghost: WhatsApp (`wa.me/<digits>?text=`) or SMS (`sms:<n>&body=` on iOS, `?body=` elsewhere) with a friendly message and the ghost's personal claim link.
 - A personal claim link opened signed out: sign up → onboarding (phone prefilled from the ghost, editable) → the spot is claimed automatically → the group opens with a one-time welcome card (who added you, spent so far, your balance, See the expenses). Already signed-in users confirm with one tap. Past expenses, splits and balances come with the spot.
 - Whoever added the ghost gets an activity entry and a push: "Rahul joined Goa Trip".
@@ -417,11 +430,16 @@ supabase/
 ### PWA and iOS constraints
 
 - iOS Safari does not support the Vibration API, so no haptics. Use visual and motion feedback instead.
-- Push notifications on iOS work only after the user adds Settld to the Home Screen (iOS 16.4+). Onboarding must show an animated Add to Home Screen guide, and the app should re-prompt gently after the first expense.
+- Push notifications on iOS work only after the user adds Settld to the Home Screen (iOS 16.4+). Onboarding must show an animated Add to Home Screen guide; the Home Screen app asks for notifications on its first open (full-screen card, from a tap), and the app re-prompts gently after the first expense.
 - Set `display: standalone`, theme color per light/dark, and splash images for iPhone sizes.
 - App icon: `public/brand/settld-icon-pixel.svg` (pixel S, faded echo, white tick stamp on coral). `scripts/build-icons.mjs` generates favicon.ico (16 without stamp/echo, 32, 48), icon.svg, a full-bleed apple-touch-icon (180), icon-192/512 (rounded, "any"), a full-bleed maskable 512 with the artwork scaled into the 80% safe zone, and a white-S notification badge. Manifest: name "Settld", theme #EE6A4B, background #F4F1EC. The icon sits next to SETTLD on the landing page and sign-in screens.
 - Handle safe areas with `env(safe-area-inset-*)` so the coral footer clears the home indicator.
 - UPI deep links open external apps; detect return via `visibilitychange` to ask "Did the payment go through?"
+- **Offline (Milestone 9).** Serwist service worker: app shell, fonts, icons and the last-viewed group pages are cached (NetworkFirst, 4 s timeout); auth routes, `/api/*`, Supabase API calls and tokens are never cached; `/~offline` for pages never opened. Data caches are cleared on sign-out. Banner "Offline · showing saved data" (reachability probed against `/api/version`, since `navigator.onLine` can be wrong).
+- **Offline queue.** Add/edit/delete expense and record settlement made offline go to IndexedDB (idb-keyval), shown with a "Waiting to sync" badge and drawn over the server data. Replayed in order on reconnect with the same client_id (no duplicates). A change the server rejects stays in "Couldn't sync" with the reason, with Edit / Retry / Discard; nothing is dropped silently.
+- **Updates.** A new deploy shows "New version of Settld · Reload" (waiting service worker, or `/api/version` ≠ the build's sha). The ChunkLoadError auto-reload stays.
+- **Splash screens.** Light (pixel S on coral) and dark, for 11 iPhone sizes (`public/brand/splash/`, generated by `scripts/build-icons.mjs`). Inputs are 16px+ (no zoom on focus); no rubber-band scroll on fixed headers/footers.
+- **Tests.** Playwright E2E against the local Supabase stack (`npx supabase start && npm run e2e`): create group → invite → join → add expense → settle → confirm, the offline queue, push delivery (decrypted at a local push service), required phone/UPI, and axe-core in light/dark with reduced motion. `supabase/checks/advisors.sql` mirrors the Supabase advisor checks.
 
 ## Build order
 

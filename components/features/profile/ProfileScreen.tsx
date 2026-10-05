@@ -84,7 +84,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
         <Row label="Phone" value={phone ? formatPhone(phone) : "Add your number"} faded={!phone} onClick={() => setEditing("phone")} />
         <Row
           label="UPI ID"
-          value={profile.upi_id ?? "Add for 1-tap payback"}
+          value={profile.upi_id ?? (profile.upi_opt_out ? "Not using UPI" : "Add for 1-tap payback")}
           faded={!profile.upi_id}
           onClick={() => setEditing("upi")}
         />
@@ -99,7 +99,7 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
         <div className="flex items-center justify-between gap-4 px-4 py-3">
           <span>
             <span className="block text-[15px] font-semibold">Blur amounts on open</span>
-            <span className="mt-0.5 block text-[13px] font-medium text-ink/50">Tap any amount to peek.</span>
+            <span className="mt-0.5 block text-[13px] font-medium text-ink/60">Tap any amount to peek.</span>
           </span>
           <Switch
             label="Blur amounts on open"
@@ -152,7 +152,8 @@ export function ProfileScreen({ initialProfile, email }: { initialProfile: Profi
         saving={update.isPending}
         error={saveError}
         onClose={() => setEditing(null)}
-        onSave={(upi_id) => save({ upi_id })}
+        optedOut={profile.upi_opt_out}
+        onSave={(upi_id) => save(upi_id ? { upi_id } : { upi_id: null, upi_opt_out: true })}
       />
       <CurrencySheet
         open={editing === "currency"}
@@ -190,7 +191,7 @@ function Row({
   const content = (
     <>
       <span className="shrink-0 text-[15px] font-semibold">{label}</span>
-      <span className={`ml-auto truncate text-[15px] font-medium ${faded ? "text-ink/40" : "text-ink/70"}`}>
+      <span className={`ml-auto truncate text-[15px] font-medium ${faded ? "text-ink/60" : "text-ink/70"}`}>
         {value}
       </span>
       {onClick && <ChevronRight className="size-4 shrink-0 text-ink/30" strokeWidth={2.5} />}
@@ -265,7 +266,8 @@ function ColorForm({ name, initial, saving, onSave }: Omit<EditSheetProps<Pastel
   );
 }
 
-type UpiProps = Omit<EditSheetProps<string | null>, "initial"> & { initial: string; error: string | null };
+/** onSave(null) = "I don't use UPI". A saved UPI ID can be changed, not removed. */
+type UpiProps = Omit<EditSheetProps<string | null>, "initial"> & { initial: string; error: string | null; optedOut: boolean };
 
 function UpiSheet({ open, onClose, ...rest }: UpiProps) {
   return (
@@ -275,15 +277,20 @@ function UpiSheet({ open, onClose, ...rest }: UpiProps) {
   );
 }
 
-function UpiForm({ initial, saving, error, onSave }: Omit<UpiProps, "open" | "onClose">) {
+function UpiForm({ initial, saving, error, optedOut, onSave }: Omit<UpiProps, "open" | "onClose">) {
   const [value, setValue] = useState(initial);
-  const [invalid, setInvalid] = useState(false);
+  const [invalid, setInvalid] = useState<string | null>(null);
   return (
     <form
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        if (value.trim() && !isValidUpiId(value)) {
-          setInvalid(true);
+        if (!value.trim()) {
+          setInvalid("Enter your UPI ID. It can be changed but not removed.");
+          return;
+        }
+        if (!isValidUpiId(value)) {
+          setInvalid("UPI IDs look like name@bank, e.g. vansh@okhdfcbank.");
           return;
         }
         onSave(normalizeUpiId(value));
@@ -300,14 +307,19 @@ function UpiForm({ initial, saving, error, onSave }: Omit<UpiProps, "open" | "on
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
-          setInvalid(false);
+          setInvalid(null);
         }}
-        error={invalid ? "UPI IDs look like name@bank, e.g. vansh@okhdfcbank." : error}
-        hint="Leave empty to remove it."
+        error={invalid ?? error}
+        hint={optedOut ? "You said you don't use UPI. Add an ID any time." : "Friends pay you back to this in one tap."}
       />
       <Button type="submit" fullWidth className="mt-6" disabled={saving}>
         {saving ? "Saving…" : "Save"}
       </Button>
+      {!optedOut && (
+        <Button type="button" variant="ghost" fullWidth className="mt-2" disabled={saving} onClick={() => onSave(null)}>
+          I don&apos;t use UPI (living outside India)
+        </Button>
+      )}
     </form>
   );
 }

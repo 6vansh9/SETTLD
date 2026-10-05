@@ -39,7 +39,7 @@ export function WelcomeCard({
       aria-labelledby="welcome-title"
       className="relative mx-5 mt-4 rounded-card border-[1.5px] border-ink/[0.08] bg-surface p-5"
     >
-      <button type="button" onClick={onClose} aria-label="Dismiss" className="absolute right-2 top-2 flex size-10 items-center justify-center rounded-full text-ink/40 hover:bg-ink/5">
+      <button type="button" onClick={onClose} aria-label="Dismiss" className="absolute right-2 top-2 flex size-10 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5">
         <X className="size-4" />
       </button>
       <p className="micro text-ink-faded">You&apos;re in</p>
@@ -51,7 +51,7 @@ export function WelcomeCard({
       </p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl p-3 text-on-pastel" style={{ backgroundColor: pastelVar(color) }}>
-          <p className="micro opacity-60">Spent so far</p>
+          <p className="micro opacity-75">Spent so far</p>
           <Amount amount={spent} currency={currency} size="md" className="mt-1" />
         </div>
         <div className="rounded-2xl border-[1.5px] border-ink/[0.08] p-3">

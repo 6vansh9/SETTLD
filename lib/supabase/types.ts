@@ -23,6 +23,7 @@ export interface Database {
           name: string;
           avatar_color: Pastel;
           upi_id: string | null;
+          upi_opt_out: boolean;
           default_currency: CurrencyCode;
           privacy_blur: boolean;
           onboarded_at: string | null;
@@ -35,6 +36,7 @@ export interface Database {
           name?: string;
           avatar_color?: Pastel;
           upi_id?: string | null;
+          upi_opt_out?: boolean;
           default_currency?: CurrencyCode;
           privacy_blur?: boolean;
           onboarded_at?: string | null;
@@ -45,6 +47,7 @@ export interface Database {
           name?: string;
           avatar_color?: Pastel;
           upi_id?: string | null;
+          upi_opt_out?: boolean;
           default_currency?: CurrencyCode;
           privacy_blur?: boolean;
           onboarded_at?: string | null;

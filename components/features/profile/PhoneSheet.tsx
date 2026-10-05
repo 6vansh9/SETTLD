@@ -7,33 +7,28 @@ import { fromE164, toE164 } from "@/lib/phone";
 import { useSetMyPhone } from "@/lib/queries/phone";
 import { PhoneField, phoneError, type PhoneValue } from "./PhoneField";
 
-/** Edit my phone (/me) or add it the first time (one-time prompt for existing users). */
+/** Edit my phone on /me (it can be changed, not removed). */
 export function PhoneSheet({
   open,
   onClose,
   current,
   title = "Phone number",
   intro,
-  laterLabel,
-  onLater,
 }: {
   open: boolean;
   onClose: () => void;
   current: string | null;
   title?: string;
   intro?: string;
-  /** Shown as a second button (the one-time prompt's "Later"). */
-  laterLabel?: string;
-  onLater?: () => void;
 }) {
   return (
     <Sheet open={open} onClose={onClose} title={title}>
-      <PhoneForm current={current} intro={intro} onDone={onClose} laterLabel={laterLabel} onLater={onLater} />
+      <PhoneForm current={current} intro={intro} onDone={onClose} />
     </Sheet>
   );
 }
 
-function PhoneForm({ current, intro, onDone, laterLabel, onLater }: { current: string | null; intro?: string; onDone: () => void; laterLabel?: string; onLater?: () => void }) {
+function PhoneForm({ current, intro, onDone }: { current: string | null; intro?: string; onDone: () => void }) {
   const save = useSetMyPhone();
   const [value, setValue] = useState<PhoneValue>(() => fromE164(current));
   const [touched, setTouched] = useState(false);
@@ -70,11 +65,6 @@ function PhoneForm({ current, intro, onDone, laterLabel, onLater }: { current: s
       <Button type="submit" fullWidth className="mt-6" disabled={save.isPending}>
         {save.isPending ? "Saving…" : "Save"}
       </Button>
-      {laterLabel && onLater && (
-        <Button type="button" variant="ghost" fullWidth className="mt-2" onClick={onLater}>
-          {laterLabel}
-        </Button>
-      )}
     </form>
   );
 }

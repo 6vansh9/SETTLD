@@ -37,3 +37,24 @@ describe("owe/owed contrast (WCAG AA, normal text)", () => {
     expect(contrastRatio(light.owed, light.bg)).toBeLessThan(AA);
   });
 });
+
+/** Composite an rgb(r g b / a) token over a solid background → #rrggbb. */
+function over(token: string, bg: string): string {
+  const m = /rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)/.exec(token);
+  if (!m) throw new Error(`not an rgba token: ${token}`);
+  const a = Number(m[4]);
+  const b = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
+  return `#${[1, 2, 3].map((i, k) => Math.round(Number(m[i]) * a + b[k] * (1 - a)).toString(16).padStart(2, "0")).join("")}`;
+}
+const faded = (block: RegExp) => /--ink-faded:\s*(rgb\([^)]+\))/.exec(block.exec(css)?.[1] ?? "")?.[1] ?? "";
+
+describe("faded ink (micro labels, faded title lines) meets AA", () => {
+  it("light and dark, on the page and on surfaces", () => {
+    const l = faded(/:root \{([\s\S]*?)\n\}/);
+    const d = faded(/:root\.dark \{([\s\S]*?)\n\}/);
+    expect(contrastRatio(over(l, light.bg), light.bg)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(over(l, light.surface), light.surface)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(over(d, dark.bg), dark.bg)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(over(d, dark.surface), dark.surface)).toBeGreaterThanOrEqual(AA);
+  });
+});

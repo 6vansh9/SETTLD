@@ -112,6 +112,13 @@ export function formatAmount(minor: Minor, currency: CurrencyCode): string {
   return `${p.negative ? "-" : ""}${p.symbol}${p.whole}${p.fraction}`;
 }
 
+/** Like formatAmount, but whole amounts drop the zero fraction: "₹340", "₹12.50". For short text (push, nudges). */
+export function formatAmountShort(minor: Minor, currency: CurrencyCode): string {
+  const p = formatParts(minor, currency);
+  const fraction = /^\D0+$/.test(p.fraction) ? "" : p.fraction;
+  return `${p.negative ? "-" : ""}${p.symbol}${p.whole}${fraction}`;
+}
+
 /**
  * Split a total into n integer parts that sum exactly to the total.
  * Leftover minor units go to the first members (stable order).

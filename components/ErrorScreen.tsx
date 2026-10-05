@@ -75,7 +75,7 @@ export function ErrorScreen({ error, reset }: { error: Error & { digest?: string
             value={report}
             rows={7}
             onFocus={(e) => e.currentTarget.select()}
-            className="mt-2 w-full resize-none rounded-2xl border-[1.5px] border-ink/15 bg-surface p-3 font-mono text-[12px] leading-relaxed text-ink"
+            className="mt-2 w-full resize-none rounded-2xl border-[1.5px] border-ink/15 bg-surface p-3 font-mono text-[16px] leading-snug text-ink"
           />
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button

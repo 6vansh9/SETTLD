@@ -59,7 +59,7 @@ export function BalancesTab({
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold">
                     {label(b.member_id)}
-                    {m.left_at && <span className="text-ink/40"> · left</span>}
+                    {m.left_at && <span className="text-ink/60"> · left</span>}
                   </span>
                   <span className="micro mt-1 block text-ink-faded">
                     {b.net > 0 ? "Gets back" : b.net < 0 ? "Owes" : "Settled up"}
@@ -70,7 +70,7 @@ export function BalancesTab({
                   currency={group.base_currency}
                   size="md"
                   sign={b.net > 0 ? "owed" : b.net < 0 ? "owe" : undefined}
-                  className={b.net === 0 ? "opacity-40" : undefined}
+                  className={b.net === 0 ? "text-ink-faded [--amount-faded:1]" : undefined}
                 />
               </li>
             );
@@ -98,7 +98,7 @@ export function BalancesTab({
                 <li key={`${t.from}-${t.to}`} className="rounded-card border-[1.5px] border-ink/[0.08] bg-surface p-4">
                   <div className="flex items-center gap-2">
                     {from && <Avatar {...memberAvatar(from)} size="sm" />}
-                    <ArrowRight className="size-4 text-ink/40" aria-hidden />
+                    <ArrowRight className="size-4 text-ink/60" aria-hidden />
                     {to && <Avatar {...memberAvatar(to)} size="sm" />}
                     <span className="ml-1 min-w-0 flex-1 truncate text-[14px] font-semibold">
                       {label(t.from)} {label(t.from) === "You" ? "pay" : "pays"} {label(t.to)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { isQueued } from "@/lib/offline/expense-queue";
 import { ArrowRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AmountOverlay } from "@/components/features/expense/AmountOverlay";
@@ -54,7 +55,7 @@ export function SettleSheet({
   const [step, setStep] = useState<Step>("pick");
   const [pending, setPending] = useState<Pending | null>(null);
   const [amountOpen, setAmountOpen] = useState(false);
-  const [recorded, setRecorded] = useState<{ p: Pending; method: SettlementMethod; byReceiver: boolean; id: string | null } | null>(null);
+  const [recorded, setRecorded] = useState<{ p: Pending; method: SettlementMethod; byReceiver: boolean; id: string | null; queued?: boolean } | null>(null);
   const [sharing, setSharing] = useState<"story" | "chat" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const clientId = useRef("");
@@ -92,7 +93,8 @@ export function SettleSheet({
       try {
         // Optimistic: the payment shows in the group immediately; the sheet waits for the server.
         const row = await record.mutateAsync({ ...p, method, clientId: clientId.current, silent: true });
-        setRecorded({ p, method, byReceiver: p.to === me.id, id: row?.id ?? null });
+        const queued = isQueued(row);
+        setRecorded({ p, method, byReceiver: p.to === me.id, id: queued ? null : (row?.id ?? null), queued });
         setStep("done");
         if (clearsDebt(planAtOpen.current, p.from, p.to, p.amount)) onSettledUp?.();
       } catch (err) {
@@ -216,7 +218,7 @@ export function SettleSheet({
                     onPick={(method) => save(pending, method)}
                   />
                   {!upiOk && currency === "INR" && (
-                    <p className="pt-1 text-center text-[12px] font-medium text-ink/50">
+                    <p className="pt-1 text-center text-[12px] font-medium text-ink/60">
                       {label(pending.to)} hasn&apos;t added a UPI ID, so pay them however you like and mark it here.
                     </p>
                   )}
@@ -278,11 +280,18 @@ export function SettleSheet({
                 className="aspect-[1200/630] w-full rounded-card border-[1.5px] border-on-pastel/[0.08] object-cover"
                 style={{ backgroundColor: pastelVar(group.color) }}
               />
+            ) : recorded.queued ? (
+              <div className="flex aspect-[1200/630] w-full flex-col items-center justify-center rounded-card p-6 text-center text-on-pastel" style={{ backgroundColor: pastelVar(group.color) }}>
+                <p className="font-display text-[40px] uppercase leading-[0.9]">Saved</p>
+                <p className="mt-2 text-[14px] font-semibold opacity-70">Waiting to sync · the receipt appears once it&apos;s online</p>
+              </div>
             ) : (
               <div className="aspect-[1200/630] w-full animate-pulse rounded-card" style={{ backgroundColor: pastelVar(group.color) }} />
             )}
             <p className="mt-4 text-center text-[14px] font-medium text-ink/70">
-              {recorded.byReceiver
+              {recorded.queued
+                ? "You're offline. It's saved on this phone and syncs when you're back online."
+                : recorded.byReceiver
                 ? "Recorded and confirmed."
                 : `Recorded. ${label(recorded.p.to)} can confirm it from the group.`}
             </p>
@@ -342,7 +351,7 @@ function Pair({ from, to, size = "sm" }: { from?: MemberWithProfile; to?: Member
   return (
     <span className="flex shrink-0 items-center gap-1.5">
       {from && <Avatar {...memberAvatar(from)} size={size === "lg" ? "md" : "sm"} />}
-      <ArrowRight className="size-4 text-ink/40" aria-hidden />
+      <ArrowRight className="size-4 text-ink/60" aria-hidden />
       {to && <Avatar {...memberAvatar(to)} size={size === "lg" ? "md" : "sm"} />}
     </span>
   );
@@ -379,7 +388,7 @@ function MarkPaid({
             onClick={() => setMethod(o.value)}
             className={cn(
               "h-9 rounded-full text-[13px] font-semibold transition-colors",
-              method === o.value ? "bg-surface text-ink shadow-[0_0_0_1.5px_rgb(var(--ink-rgb)/0.08)]" : "text-ink/50",
+              method === o.value ? "bg-surface text-ink shadow-[0_0_0_1.5px_rgb(var(--ink-rgb)/0.08)]" : "text-ink/60",
             )}
           >
             {o.label}

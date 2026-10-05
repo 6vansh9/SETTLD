@@ -1,10 +1,12 @@
-import { formatAmount, isCurrencyCode, type CurrencyCode } from "@/lib/money";
+import { formatAmountShort, isCurrencyCode, type CurrencyCode } from "@/lib/money";
 import { nudgeText } from "@/lib/nudges";
 
 /**
  * Who gets a push for an activity row, and what it says. Pure: the webhook route loads the rows,
- * this decides. Rules (Milestone 8):
- *  • expense_created      → everyone in the expense (payers + people with a share), "money"
+ * this decides. Rules (Milestone 8, expense rules 0012):
+ *  • expense_created      → everyone with a share: "you owe ₹600" / "you get back ₹1,800", "money"
+ *  • expense_updated      → people whose share changed (and who are still in it): "your share is now ₹800"
+ *  • expense_deleted      → everyone who had a share: "Aman deleted Dinner"
  *  • settlement_recorded  → the other side of the payment, "money"
  *  • settlement_confirmed / _disputed → whoever paid, "money"
  *  • comment_added        → everyone in that expense / payment, "all" only
@@ -29,7 +31,7 @@ export interface PushContext {
   group: { id: string; name: string; emoji: string; base_currency: CurrencyCode };
   members: PushMember[];
   /** expense_created / comment on an expense */
-  expense?: { id: string; title: string; payers: { member_id: string; amount_base: number }[]; splits: { member_id: string; amount_base: number }[] } | null;
+  expense?: { id: string; title: string; amount_base?: number; payers: { member_id: string; amount_base: number }[]; splits: { member_id: string; amount_base: number }[] } | null;
   /** settlement_* / comment on a settlement */
   settlement?: { id: string; from_member: string; to_member: string; amount_base: number } | null;
 }
@@ -52,8 +54,8 @@ export interface PushMessage {
   tag: string;
 }
 
-export const PUSH_KINDS = ["expense_created", "settlement_recorded", "settlement_confirmed", "settlement_disputed", "comment_added", "nudge_sent", "ghost_claimed"] as const;
-const MONEY_KINDS = new Set(["expense_created", "settlement_recorded", "settlement_confirmed", "settlement_disputed", "nudge_sent"]);
+export const PUSH_KINDS = ["expense_created", "expense_updated", "expense_deleted", "settlement_recorded", "settlement_confirmed", "settlement_disputed", "comment_added", "nudge_sent", "ghost_claimed"] as const;
+const MONEY_KINDS = new Set(["expense_created", "expense_updated", "expense_deleted", "settlement_recorded", "settlement_confirmed", "settlement_disputed", "nudge_sent"]);
 
 const first = (n: string) => n.trim().split(/\s+/)[0] || n;
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -66,13 +68,25 @@ export function commentTarget(a: ActivityRecord): { type: "expense" | "settlemen
   return (type === "expense" || type === "settlement") && id ? { type, id } : null;
 }
 
+/** previous_splits from the expense_updated payload: member id → share before the edit. */
+function previousShares(v: unknown): Map<string, number> {
+  const out = new Map<string, number>();
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+      const n = num(x);
+      if (Number.isFinite(n)) out.set(k, n);
+    }
+  }
+  return out;
+}
+
 export function pushMessages(a: ActivityRecord, ctx: PushContext): PushMessage[] {
   const byId = new Map(ctx.members.map((m) => [m.id, m]));
   const actor = a.actor_member ? byId.get(a.actor_member) : undefined;
   const who = first(actor?.display_name ?? "Someone");
   const cur = ctx.group.base_currency;
-  const money = (minor: number) => formatAmount(minor, cur);
-  const title = `${ctx.group.emoji} ${ctx.group.name}`;
+  const money = (minor: number) => formatAmountShort(minor, cur);
+  const title = `Settld · ${ctx.group.name}`;
   const groupUrl = `/g/${ctx.group.id}`;
   const open = (what: string) => `${groupUrl}?open=${encodeURIComponent(what)}`;
 
@@ -85,10 +99,30 @@ export function pushMessages(a: ActivityRecord, ctx: PushContext): PushMessage[]
     case "expense_created": {
       const e = ctx.expense;
       if (!e) return [];
-      targets = [...expenseMembers(e)].map((m) => {
-        const share = e.splits.find((s) => s.member_id === m)?.amount_base ?? 0;
-        return [m, share > 0 ? `${who} added ${e.title} · your share ${money(share)}` : `${who} added ${e.title}`, open(`expense:${e.id}`)];
-      });
+      const total = e.amount_base ?? e.payers.reduce((t, p) => t + p.amount_base, 0);
+      targets = e.splits
+        .filter((x) => x.amount_base > 0)
+        .map((x) => {
+          const paid = e.payers.filter((p) => p.member_id === x.member_id).reduce((t, p) => t + p.amount_base, 0);
+          const net = paid - x.amount_base;
+          const mine = net > 0 ? `you get back ${money(net)}` : net < 0 ? `you owe ${money(-net)}` : `your share ${money(x.amount_base)}`;
+          return [x.member_id, `${who} added ${e.title} · ${money(total)} · ${mine}`, open(`expense:${e.id}`)];
+        });
+      break;
+    }
+    case "expense_updated": {
+      const e = ctx.expense;
+      if (!e) return [];
+      const before = previousShares(a.payload.previous_splits);
+      targets = e.splits
+        .filter((x) => x.amount_base > 0 && before.get(x.member_id) !== x.amount_base)
+        .map((x) => [x.member_id, `${who} changed ${e.title} · your share is now ${money(x.amount_base)}`, open(`expense:${e.id}`)]);
+      break;
+    }
+    case "expense_deleted": {
+      const e = ctx.expense;
+      if (!e) return [];
+      targets = e.splits.filter((x) => x.amount_base > 0).map((x) => [x.member_id, `${who} deleted ${e.title}`, `${groupUrl}?tab=activity`]);
       break;
     }
     case "settlement_recorded": {
@@ -137,7 +171,7 @@ export function pushMessages(a: ActivityRecord, ctx: PushContext): PushMessage[]
         currency: currency && isCurrencyCode(currency) ? currency : cur,
         days: num(a.payload.days) || 0,
       });
-      targets = [[to, text, `${groupUrl}?settle=1`]];
+      targets = [[to, text, `${groupUrl}?tab=balances`]];
       break;
     }
     case "ghost_claimed": {

@@ -81,7 +81,7 @@ function InviteBody({ group, isAdmin }: { group: GroupWithMembers; isAdmin: bool
           <span aria-hidden>{group.emoji}</span>
           {group.name}
         </p>
-        <p className="micro mt-2 opacity-60">Scan to join</p>
+        <p className="micro mt-2 opacity-75">Scan to join</p>
         <div className="mt-5 w-[200px]">
           {url ? (
             <QrCode value={url} label={`QR code for ${url}`} />
@@ -107,7 +107,7 @@ function InviteBody({ group, isAdmin }: { group: GroupWithMembers; isAdmin: bool
         aria-label="Copy invite link"
       >
         <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink/70">{url || "Loading link…"}</span>
-        {copied ? <Check className="size-5 text-owed-ink" strokeWidth={2.5} /> : <Copy className="size-5 text-ink/50" />}
+        {copied ? <Check className="size-5 text-owed-ink" strokeWidth={2.5} /> : <Copy className="size-5 text-ink/60" />}
       </button>
       <p aria-live="polite" className="sr-only">
         {copied ? "Copied" : ""}
