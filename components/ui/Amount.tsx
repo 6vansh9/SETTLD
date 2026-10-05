@@ -75,12 +75,12 @@ export function Amount({
 
   const content = (
     <>
-      <span className="opacity-35">
+      <span className="opacity-[var(--amount-faded,0.35)]">
         {parts.negative ? "−" : ""}
         {parts.symbol}
       </span>
       <span>{parts.whole}</span>
-      {parts.fraction && <span className="opacity-35">{parts.fraction}</span>}
+      {parts.fraction && <span className="opacity-[var(--amount-faded,0.35)]">{parts.fraction}</span>}
     </>
   );
 

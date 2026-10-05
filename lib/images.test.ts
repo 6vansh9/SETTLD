@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { contrastRatio } from "./contrast";
-import { clampCrop, COVER_TINT, cropRect, cropSize, initialCrop, isHeic, panBy, pathFromPublicUrl, publicUrl, zoomTo } from "./images";
+import { clampCrop, COVER_FADED, COVER_TINT, cropRect, SCRIM_TEXT, SCRIM_TITLE, cropSize, initialCrop, isHeic, panBy, pathFromPublicUrl, publicUrl, zoomTo } from "./images";
 import { PASTEL_HEX } from "./pastels";
 
 describe("crop maths", () => {
@@ -50,17 +50,30 @@ describe("storage URLs", () => {
   });
 });
 
-describe("cover tint keeps dark text readable on any photo", () => {
-  const mix = (hex: string, alpha: number, under: number) =>
-    "#" +
-    [0, 2, 4]
-      .map((i) => Math.round(parseInt(hex.slice(1 + i, 3 + i), 16) * alpha + under * (1 - alpha)))
-      .map((c) => c.toString(16).padStart(2, "0"))
-      .join("");
-  for (const [name, hex] of Object.entries(PASTEL_HEX)) {
-    it(`${name}: ≥ 4.5:1 over black and over white`, () => {
-      expect(contrastRatio("#0E0E0E", mix(hex, COVER_TINT, 0))).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio("#0E0E0E", mix(hex, COVER_TINT, 255))).toBeGreaterThanOrEqual(4.5);
-    });
+describe("cover scrim keeps white text AA on any photo", () => {
+  // Composite in sRGB like the browser: photo → pastel wash → black scrim → (white text at opacity).
+  const over = (top: number[], alpha: number, under: number[]) => top.map((c, i) => c * alpha + under[i] * (1 - alpha));
+  const hex = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+  const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const photos = { white: [255, 255, 255], black: [0, 0, 0], grey: [128, 128, 128], sky: [135, 206, 235], sand: [238, 214, 175] };
+  const WHITE = [255, 255, 255];
+
+  for (const [pastel, ph] of Object.entries(PASTEL_HEX)) {
+    for (const [photoName, photo] of Object.entries(photos)) {
+      it(`${pastel} over a ${photoName} photo`, () => {
+        const washed = over(rgb(ph), COVER_TINT, photo);
+        const behindText = over([0, 0, 0], SCRIM_TEXT, washed);
+        const behindTitle = over([0, 0, 0], SCRIM_TITLE, washed);
+        // white and 60% white labels/amounts: 4.5:1
+        expect(contrastRatio("#ffffff", hex(behindText))).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(hex(over(WHITE, COVER_FADED, behindText)), hex(behindText))).toBeGreaterThanOrEqual(4.5);
+        // the big name is large text: 3:1
+        expect(contrastRatio("#ffffff", hex(behindTitle))).toBeGreaterThanOrEqual(3);
+      });
+    }
   }
+
+  it("the photo keeps its colors: the wash is light", () => {
+    expect(COVER_TINT).toBeLessThanOrEqual(0.15);
+  });
 });

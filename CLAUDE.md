@@ -267,3 +267,17 @@
   - **Live updates:** the group channel listens to `groups` (this group) and `profiles` updates; Home listens to `groups`/`profiles` updates.
 - **Verified:** headless at 390px (11 checks): photo avatars, initials fallback on a broken photo, no photo for ghosts, a 4032×3024 photo → crop → upload of a 256×256 WebP to `avatars/<me>/<uuid>.webp` with my token and no upsert, 1200×600 WebP cover upload, progress bar, HEIC message, tinted card strip and header. The OG invite was rendered with a WebP cover over sky (the darkest pastel). Tests: 332 passing.
 - **Not verified here:** real Supabase Storage uploads and policies (run 0008 first), iPhone HEIC/camera, and the Google photo copy.
+
+### Cover redesign: real colors + scrim (2026-10-05, user request; PRD updated)
+
+- **Problem:** the 74% pastel overlay turned cover photos into a muddy wash.
+- **Now** (`lib/images.ts`, `CoverBackdrop`):
+  - **Photo:** shown in its real colors with a 12% wash of the group color (`COVER_TINT`).
+  - **Scrim:** a dark gradient (`headerScrim`) clear behind the nav, 0.3 at 56 px, `SCRIM_TITLE` 0.6 at 128 px (the title starts at 140 px), `SCRIM_TEXT` 0.75 from 200 px to the bottom, then a 36 px fade into the group's pastel. 0.75 rather than 0.7 because 60%-white labels over a pure white photo need about 0.72 for 4.5:1.
+  - **Tests:** `lib/images.test.ts` checks white and 60%-white text, and the title, for every pastel over white, black, grey, sky and sand photos.
+- **Header with a cover** (GroupScreen): `text-white`, `--amount-faded: 0.6`, and `pb-12` to make room for the pastel fade. Back and settings sit on `bg-black/35 backdrop-blur-md` circles; the Invite pill turns white. WHO'S PAID stays a solid card with normal fading.
+  - `<Amount>` faded parts now read `opacity-[var(--amount-faded,0.35)]`.
+  - Groups without a cover are unchanged.
+- **Home cards:** the cover strip is taller (`pt-14`), with the avatars and date at its bottom in white over `stripScrim`, fading into the pastel.
+- **Invite OG:** the same photo, wash and scrim (0.55 at the top, so "YOU'RE INVITED" is full white; 0.75 from 240 px), white wordmark and text, and a pastel fade at the bottom.
+- **Verified:** screenshots at 390px of the live Goa photo plus white and black test images, light and dark, cards, and OG renders.

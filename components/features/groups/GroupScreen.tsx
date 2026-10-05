@@ -42,6 +42,7 @@ import { myTransfers, settlementPlan } from "@/lib/settle";
 import type { Transfer } from "@/lib/simplify";
 import type { GroupBalance, Settlement } from "@/lib/supabase/types";
 import { GroupSettingsSheet } from "./GroupSettingsSheet";
+import { COVER_FADED } from "@/lib/images";
 import { CoverBackdrop } from "./CoverBackdrop";
 import { InviteSheet } from "./InviteSheet";
 import { MembersSheet } from "./MembersSheet";
@@ -227,20 +228,29 @@ export function GroupScreen({
   const archived = !!g.archived_at;
   const current = TABS.find((t) => t.id === tab)!;
   const typeLabel = GROUP_TYPES.find((t) => t.value === g.type)?.label ?? "Group";
+  const cover = !!g.cover_url;
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-app pb-[calc(190px+env(safe-area-inset-bottom))]">
       {/* Pastel header */}
       <header
-        className="relative isolate overflow-hidden rounded-b-[32px] border-[1.5px] border-t-0 border-on-pastel/[0.08] px-5 pb-6 pt-[calc(12px+env(safe-area-inset-top))] text-on-pastel"
-        style={{ backgroundColor: pastelVar(g.color) }}
+        className={cn(
+          "relative isolate overflow-hidden rounded-b-[32px] border-[1.5px] border-t-0 border-on-pastel/[0.08] px-5 pt-[calc(12px+env(safe-area-inset-top))]",
+          // With a cover: white text over the scrim (faded parts at 60%), and room at the bottom for
+          // the fade into the group's pastel.
+          cover ? "pb-12 text-white" : "pb-6 text-on-pastel",
+        )}
+        style={{ backgroundColor: pastelVar(g.color), ...(cover ? { "--amount-faded": COVER_FADED } : {}) } as React.CSSProperties}
       >
         <CoverBackdrop url={g.cover_url} color={g.color} />
         <div className="flex h-11 items-center justify-between">
           <Link
             href="/groups"
             aria-label="Back to groups"
-            className="-ml-2 flex size-11 items-center justify-center rounded-full hover:bg-on-pastel/5"
+            className={cn(
+              "flex size-11 items-center justify-center rounded-full",
+              cover ? "-ml-1 bg-black/35 backdrop-blur-md" : "-ml-2 hover:bg-on-pastel/5",
+            )}
           >
             <ArrowLeft className="size-5" strokeWidth={2.25} />
           </Link>
@@ -249,7 +259,10 @@ export function GroupScreen({
               type="button"
               onClick={() => setSheet("settings")}
               aria-label="Group settings"
-              className="-mr-2 flex size-11 items-center justify-center rounded-full hover:bg-on-pastel/5"
+              className={cn(
+                "flex size-11 items-center justify-center rounded-full",
+                cover ? "-mr-1 bg-black/35 backdrop-blur-md" : "-mr-2 hover:bg-on-pastel/5",
+              )}
             >
               <Settings2 className="size-5" strokeWidth={2.25} />
             </button>
@@ -280,7 +293,7 @@ export function GroupScreen({
         </div>
         {paidSegments.length > 0 && (
           // Neutral card so member pastels never vanish into the group's own pastel.
-          <div className="mt-4 rounded-2xl border-[1.5px] border-on-pastel/[0.08] bg-surface p-3 text-ink">
+          <div className="mt-4 rounded-2xl border-[1.5px] border-on-pastel/[0.08] bg-surface p-3 text-ink [--amount-faded:0.35]">
             <p className="micro mb-2 text-ink-faded">Who&apos;s paid</p>
             <SplitBar segments={paidSegments} />
           </div>
@@ -313,7 +326,10 @@ export function GroupScreen({
             <button
               type="button"
               onClick={() => setSheet("invite")}
-              className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-on-pastel px-4 text-[14px] font-semibold text-[color:var(--avatar-ring,#fff)]"
+              className={cn(
+                "flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[14px] font-semibold",
+                cover ? "bg-white text-on-pastel" : "bg-on-pastel text-[color:var(--avatar-ring,#fff)]",
+              )}
               style={{ "--avatar-ring": pastelVar(g.color) } as React.CSSProperties}
             >
               <UserPlus className="size-4" strokeWidth={2.5} />

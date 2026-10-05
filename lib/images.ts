@@ -14,10 +14,34 @@ export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // bucket limit (0008_photos.sq
 export const MAX_ZOOM = 4;
 
 /**
- * Pastel tint over a group cover so dark text stays WCAG AA (4.5:1) even on a pure black photo.
- * The darkest pastel (sky) needs 0.70; see lib/images.test.ts.
+ * Group covers show the photo in its real colors with a light wash of the group color, and a dark
+ * gradient scrim behind the text (white text on covers). The scrim stops are the darkness behind
+ * each band of text; lib/images.test.ts proves WCAG AA over a pure white photo (the worst case for
+ * white text), a pure black one and mid tones:
+ *  • COVER_TINT   light on-brand wash of the group color over the whole photo
+ *  • SCRIM_TITLE  behind the big name (large text, 3:1)
+ *  • SCRIM_TEXT   behind labels, amounts and members (normal text at 60% white, 4.5:1)
  */
-export const COVER_TINT = 0.74;
+export const COVER_TINT = 0.12;
+export const SCRIM_TITLE = 0.6;
+export const SCRIM_TEXT = 0.75;
+/** Faded text on covers (decimals, ₹, secondary labels). */
+export const COVER_FADED = 0.6;
+
+const black = (a: number) => `rgb(0 0 0 / ${a})`;
+
+/**
+ * Header scrim (px stops from the top): clear sky behind the nav, darkening by the title, full
+ * strength from the labels down, then a short fade into the group's pastel where it meets the page.
+ */
+export function headerScrim(pastel: string, fadePx = 36): string {
+  return `linear-gradient(to bottom, ${black(0)} 0px, ${black(0.3)} 56px, ${black(SCRIM_TITLE)} 128px, ${black(SCRIM_TEXT)} 200px, ${black(SCRIM_TEXT)} calc(100% - ${fadePx}px), ${pastel} 100%)`;
+}
+
+/** Card strip scrim: the avatar row and date sit at the bottom of the strip, then a fade to pastel. */
+export function stripScrim(pastel: string): string {
+  return `linear-gradient(to bottom, ${black(0.15)} 0%, ${black(SCRIM_TEXT)} 45%, ${black(SCRIM_TEXT)} calc(100% - 14px), ${pastel} 100%)`;
+}
 
 export interface CropState {
   zoom: number; // 1 = the largest crop of the output's aspect ratio that fits
