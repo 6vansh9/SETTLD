@@ -467,6 +467,7 @@ export interface Database {
       set_notify_level: { Args: { p_group_id: string; p_level: NotifyLevel }; Returns: undefined };
       set_nudge_mode: { Args: { p_group_id: string; p_mode: NudgeMode }; Returns: undefined };
       send_nudge: { Args: { p_to_member: string; p_amount: number; p_template: number }; Returns: Nudge };
+      nudge_rules: { Args: Record<string, never>; Returns: { cooldown_seconds: number; daily_cap: number; polite_until: number; cheeky_until: number } };
       save_push_subscription: { Args: { p_endpoint: string; p_p256dh: string; p_auth: string; p_user_agent?: string | null }; Returns: undefined };
       delete_push_subscription: { Args: { p_endpoint: string }; Returns: undefined };
     };

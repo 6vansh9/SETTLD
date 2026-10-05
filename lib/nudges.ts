@@ -1,7 +1,8 @@
 import { formatAmountShort, type CurrencyCode } from "@/lib/money";
 
 /**
- * Escalating nudges (PRD › Personality › Escalating nudges). Level 1 polite, 2 cheeky, 3 dramatic.
+ * Escalating nudges (PRD › Personality › Escalating nudges). Level 1 polite, 2 cheeky, 3 dramatic,
+ * picked by the server from how many times I've nudged them since they last settled up.
  * The sender's phone picks a random template index; the server stores it with the nudge, so the
  * push and the in-app banner show the same words. Placeholders: {name} {amount} {days} {from}.
  * {days} renders as "less than a day" / "1 day" / "9 days".
@@ -27,9 +28,9 @@ export const NUDGE_TEMPLATES: Record<1 | 2 | 3, string[]> = {
     "{from} would like a word. The word is {amount}.",
     "{name}, {amount} is waving at you. Wave back?",
     "It's been {days}, {name}. {amount} wants to go home.",
-    "Reminder #2: {amount}. {from} is counting. Lovingly.",
+    "Another reminder: {amount}. {from} is counting. Lovingly.",
     "{name}, {amount} called. It wants to be settled.",
-    "Two nudges in, {name}. {amount} and {from} believe in you.",
+    "Several nudges in, {name}. {amount} and {from} believe in you.",
   ],
   3: [
     "{name}. It's been {days}. The {amount} misses you.",
@@ -73,18 +74,42 @@ export function nudgeText(o: { level: number; template: number; name: string; fr
   return fill.reduce((s, [k, v]) => s.split(k).join(v), t);
 }
 
-export const NUDGE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-
-/** When I can next nudge this person (null = now). */
-export function nextNudgeAt(lastSentAt: string | null | undefined, now: number = Date.now()): number | null {
-  if (!lastSentAt) return null;
-  const at = Date.parse(lastSentAt) + NUDGE_COOLDOWN_MS;
-  return at > now ? at : null;
+/**
+ * The limits live in ONE place: the database function public.nudge_rules()
+ * (supabase/migrations/0013_nudge_rules.sql). send_nudge enforces them; the app reads them
+ * (useNudgeRules) only to show the countdown. Change them there; no deploy needed.
+ */
+export interface NudgeRules {
+  cooldown_seconds: number;
+  daily_cap: number;
+  polite_until: number;
+  cheeky_until: number;
 }
 
-/** "in 5 h" / "in 40 min" for the disabled Nudge button. */
-export function untilText(at: number, now: number = Date.now()): string {
-  const mins = Math.max(1, Math.ceil((at - now) / 60000));
-  if (mins < 60) return `in ${mins} min`;
-  return `in ${Math.round(mins / 60)} h`;
+export type NudgeAvailability = { state: "ready" } | { state: "cooldown"; at: number } | { state: "cap"; at: number };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Can I nudge this person now? `sentAts` = my nudges to them (any order). Daily cap first (rolling
+ * 24 h; `at` = when the oldest of those drops out), then the cooldown. Rules not loaded yet
+ * (or offline) → "ready"; the server still enforces both.
+ */
+export function nudgeAvailability(sentAts: readonly string[], rules: NudgeRules | null | undefined, now: number = Date.now()): NudgeAvailability {
+  if (!rules) return { state: "ready" };
+  const times = sentAts.map((t) => Date.parse(t)).filter(Number.isFinite).sort((a, b) => a - b);
+  const today = times.filter((t) => t > now - DAY_MS);
+  if (rules.daily_cap > 0 && today.length >= rules.daily_cap) return { state: "cap", at: today[today.length - rules.daily_cap] + DAY_MS };
+  const last = times[times.length - 1];
+  const at = last + rules.cooldown_seconds * 1000;
+  return last !== undefined && at > now ? { state: "cooldown", at } : { state: "ready" };
+}
+
+/** "1:42" (or "1:02:05" past an hour) until `at`, rounded up to the next second. */
+export function countdown(at: number, now: number = Date.now()): string {
+  const secs = Math.max(0, Math.ceil((at - now) / 1000));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const ss = String(secs % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }

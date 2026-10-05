@@ -470,3 +470,19 @@
 - **/me:** "Send test notification" (re-saves this device, then a real push through the server; says why it failed). UPI can't be emptied; "Not using UPI" shown for opt-outs.
 - **Nudge debugging:** the code path (nudge → activity → trigger → pg_net → webhook → web-push → `showNotification`) is verified end to end locally (`push.spec.ts`). Vercel runtime logs aren't readable from here (403). If production nudges still don't arrive, check `private.app_settings` has `push_webhook_url` + `push_webhook_secret` and see `net._http_response`.
 - Tests: 380+ unit, 9 E2E.
+
+### Nudges: 2-minute cooldown, daily cap, escalation by count (2026-10-06, user request; PRD updated)
+
+- **`0013_nudge_rules.sql`** (idempotent; run after 0012):
+  - **Limits:** `public.nudge_rules()` is the one place for them (cooldown_seconds 120, daily_cap 10, polite_until 3, cheeky_until 6). Change it with `create or replace function`; no deploy needed.
+  - **`send_nudge` rewritten:**
+    - Daily cap per pair over a rolling 24 h: "Daily nudge limit reached".
+    - Cooldown: "You can nudge them again in 1:42".
+    - Level by the count of nudges since they last settled up. A nudge they paid back at least its amount after resets the count. Polite-only groups always send level 1.
+  - **Checks:** `supabase/checks/0013_checks.sql` (16 checks, run on local Postgres).
+- **Client:**
+  - `useNudgeRules` (rpc).
+  - `nudgeAvailability` / `countdown` in `lib/nudges.ts` (tested). If the rules haven't loaded, the button is enabled and the server decides.
+  - `NudgeButton` ticks once a second only while blocked and re-enables by itself.
+  - Two level-2 templates no longer say "#2" / "Two nudges".
+- **E2E:** `push.spec.ts` also checks that the live countdown ticks without a reload.

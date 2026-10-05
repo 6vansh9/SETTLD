@@ -118,6 +118,12 @@ test("expense and nudge pushes reach the right phone with the right words", asyn
     await aman.page.getByRole("tab", { name: "Balances" }).click();
     await aman.page.getByRole("button", { name: /^nudge$/i }).first().click();
     await expect.poll(() => ps.got.length, { timeout: 20_000 }).toBe(2);
+    // The button counts down (2-minute cooldown) instead of sending again.
+    const again = aman.page.getByRole("button", { name: /nudge again in [12]:[0-5]\d/i }).first();
+    await expect(again).toBeDisabled();
+    const t1 = await again.textContent();
+    await aman.page.waitForTimeout(2100);
+    expect(await aman.page.getByRole("button", { name: /nudge again in/i }).first().textContent()).not.toBe(t1); // live, no reload
     expect(ps.got[1]).toMatchObject({ device: "riya", title: "Settld · Goa Trip", url: `/g/${groupId}?tab=balances` });
     expect(ps.got[1].body).toContain("₹1,200");
     expect(ps.got.some((p) => p.device === "aman")).toBe(false); // never the person who acted

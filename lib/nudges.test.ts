@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysText, nextNudgeAt, NUDGE_TEMPLATES, nudgeText, randomTemplate, untilText } from "./nudges";
+import { daysText, nudgeAvailability, countdown, NUDGE_TEMPLATES, nudgeText, randomTemplate } from "./nudges";
 
 describe("nudge templates", () => {
   it("about 10 per level, every one mentions the amount and leaves no placeholder behind", () => {
@@ -29,13 +29,31 @@ describe("nudge templates", () => {
     expect(randomTemplate(() => 0.999)).toBe(9);
   });
 
-  it("24 h cooldown", () => {
-    const now = Date.parse("2026-10-05T12:00:00Z");
-    expect(nextNudgeAt(null, now)).toBeNull();
-    expect(nextNudgeAt("2026-10-04T11:00:00Z", now)).toBeNull();
-    const at = nextNudgeAt("2026-10-05T07:00:00Z", now)!;
-    expect(new Date(at).toISOString()).toBe("2026-10-06T07:00:00.000Z");
-    expect(untilText(at, now)).toBe("in 19 h");
-    expect(untilText(now + 30 * 60000, now)).toBe("in 30 min");
+  const rules = { cooldown_seconds: 120, daily_cap: 10, polite_until: 3, cheeky_until: 6 };
+  const at = (iso: string) => Date.parse(iso);
+
+  it("2-minute cooldown per person, then ready again", () => {
+    const now = at("2026-10-05T12:00:00Z");
+    expect(nudgeAvailability([], rules, now)).toEqual({ state: "ready" });
+    expect(nudgeAvailability(["2026-10-05T11:58:00Z"], rules, now)).toEqual({ state: "ready" });
+    const a = nudgeAvailability(["2026-10-05T11:58:30Z", "2026-10-05T11:40:00Z"], rules, now);
+    expect(a).toEqual({ state: "cooldown", at: at("2026-10-05T12:00:30Z") });
+    expect(countdown(at("2026-10-05T12:01:42Z"), now)).toBe("1:42");
+    expect(countdown(at("2026-10-05T12:00:00.200Z"), now)).toBe("0:01"); // rounds up: never shows 0:00 while blocked
+    expect(countdown(now - 5, now)).toBe("0:00");
+    expect(countdown(now + 3_725_000, now)).toBe("1:02:05");
+  });
+
+  it("daily cap: 10 in a rolling 24 h; frees up when the oldest of them is a day old", () => {
+    const now = at("2026-10-05T12:00:00Z");
+    const ten = Array.from({ length: 10 }, (_, i) => new Date(now - (i + 1) * 3_600_000).toISOString()); // 1 h … 10 h ago
+    expect(nudgeAvailability(ten, rules, now)).toEqual({ state: "cap", at: now - 10 * 3_600_000 + 86_400_000 });
+    expect(nudgeAvailability(ten.slice(0, 9), rules, now)).toEqual({ state: "ready" });
+    const old = [...ten.slice(0, 9), "2026-10-04T11:59:00Z"]; // one is over a day old
+    expect(nudgeAvailability(old, rules, now)).toEqual({ state: "ready" });
+  });
+
+  it("rules not loaded (or offline): the button stays usable; the server decides", () => {
+    expect(nudgeAvailability([new Date().toISOString()], null)).toEqual({ state: "ready" });
   });
 });

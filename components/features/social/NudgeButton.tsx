@@ -6,12 +6,14 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { cn } from "@/lib/cn";
 import { friendlyError } from "@/lib/groups";
 import type { GroupWithMembers } from "@/lib/groups-data";
-import { nextNudgeAt, nudgeText, randomTemplate, untilText } from "@/lib/nudges";
-import { useNudges, useSendNudge } from "@/lib/queries/social";
+import { countdown, nudgeAvailability, nudgeText, randomTemplate } from "@/lib/nudges";
+import { useNudgeRules, useNudges, useSendNudge } from "@/lib/queries/social";
 
 /**
  * Nudge someone who owes me (PRD › Escalating nudges). Hidden for ghosts and when the group has
- * nudges off; disabled with "Next nudge in 5 h" during the 24 h cooldown (the server enforces it too).
+ * nudges off. During the cooldown it counts down live ("Nudge again in 1:42") and re-enables by
+ * itself; past the daily cap it says "Daily nudge limit reached". Limits come from the database
+ * (nudge_rules), which also enforces them.
  */
 export function NudgeButton({
   group,
@@ -29,19 +31,27 @@ export function NudgeButton({
   const { show } = useToast();
   const { data: nudges = [] } = useNudges(group.id);
   const send = useSendNudge(group.id);
+  const { data: rules } = useNudgeRules();
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(t);
-  }, []);
 
   const to = group.members.find((m) => m.id === toMemberId);
   const me = group.members.find((m) => m.id === myMemberId);
-  if (!to || to.is_ghost || to.left_at || group.nudge_mode === "off" || group.archived_at) return null;
+  const sentAts = nudges.filter((n) => n.from_member === myMemberId && n.to_member === toMemberId).map((n) => n.sent_at);
+  const availability = nudgeAvailability(sentAts, rules, now);
+  const blocked = availability.state !== "ready";
 
-  const last = nudges.find((n) => n.from_member === myMemberId && n.to_member === toMemberId);
-  const waitUntil = nextNudgeAt(last?.sent_at, now);
-  const disabled = send.isPending || waitUntil !== null;
+  // Tick once a second only while blocked, so the countdown is live and the button comes back by itself.
+  useEffect(() => {
+    if (!blocked) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [blocked]);
+
+  if (!to || to.is_ghost || to.left_at || group.nudge_mode === "off" || group.archived_at) return null;
+  const disabled = send.isPending || blocked;
+  const label =
+    availability.state === "cap" ? "Daily nudge limit reached" : availability.state === "cooldown" ? `Nudge again in ${countdown(availability.at, now)}` : null;
 
   return (
     <button
@@ -68,15 +78,14 @@ export function NudgeButton({
           },
         )
       }
-      title={waitUntil ? "One nudge per person every 24 hours" : undefined}
-      aria-label={waitUntil ? `Next nudge allowed ${untilText(waitUntil, now)}` : undefined}
+      title={label ?? undefined}
       className={cn(
         "flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-semibold text-ink disabled:opacity-50",
         className,
       )}
     >
       <BellRing className="size-4" />
-      {send.isPending ? "Nudging…" : waitUntil ? `Again ${untilText(waitUntil, now)}` : "Nudge"}
+      <span className="tabular-nums">{send.isPending ? "Nudging…" : label ?? "Nudge"}</span>
     </button>
   );
 }

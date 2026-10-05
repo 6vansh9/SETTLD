@@ -143,6 +143,19 @@ export function useNudges(groupId: string) {
   });
 }
 
+/** The nudge limits from the database (public.nudge_rules), for the button's countdown. */
+export function useNudgeRules() {
+  return useQuery({
+    queryKey: ["nudge-rules"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("nudge_rules");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 10 * 60_000,
+  });
+}
+
 export function useSendNudge(groupId: string) {
   const qc = useQueryClient();
   return useMutation({
