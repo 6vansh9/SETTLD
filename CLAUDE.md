@@ -486,3 +486,14 @@
   - `NudgeButton` ticks once a second only while blocked and re-enables by itself.
   - Two level-2 templates no longer say "#2" / "Two nudges".
 - **E2E:** `push.spec.ts` also checks that the live countdown ticks without a reload.
+
+### Fix — nudge cooldown still 24 h on live (2026-10-06)
+
+- **Root cause:** the live database still runs 0009's `send_nudge` ("You can nudge them again at <ISO>", +24 h); 0013 hadn't been applied there. Nothing else enforced 24 h: no trigger, constraint or unique index on `nudges`, and the UI already read `nudge_rules()`.
+- **`0014_nudge_cooldown_patch.sql`** (self-contained, re-runnable; supersedes 0013, which is now a no-op):
+  - Drops every `send_nudge` overload, any trigger, extra unique index or `sent_at` constraint on `nudges`.
+  - Recreates `nudge_rules()` and `send_nudge`. Errors: "Nudge again in 1:42" / "Daily nudge limit reached · try again tomorrow", with `detail = retry_at=<ISO>`.
+  - Ends with a 3-row ok check.
+  - Verified starting from the old 0009 function.
+  - Checks: `supabase/checks/0014_checks.sql` (17 checks, including "after 1 minute: still refused" and "after 2 minutes: second nudge succeeds").
+- **Client:** `nudgeRetry` / `nudgeRetryText` (tested) turn any refusal (new detail, old "again at ISO", 0013's "again in m:ss") into a local countdown. The button adopts the server's retry time; long waits read "4 h 12 min". The cap label wraps.

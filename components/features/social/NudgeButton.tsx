@@ -6,7 +6,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { cn } from "@/lib/cn";
 import { friendlyError } from "@/lib/groups";
 import type { GroupWithMembers } from "@/lib/groups-data";
-import { countdown, nudgeAvailability, nudgeText, randomTemplate } from "@/lib/nudges";
+import { countdown, DAILY_CAP_TEXT, nudgeAvailability, nudgeRetry, nudgeRetryText, nudgeText, randomTemplate, type NudgeAvailability } from "@/lib/nudges";
 import { useNudgeRules, useNudges, useSendNudge } from "@/lib/queries/social";
 
 /**
@@ -37,7 +37,11 @@ export function NudgeButton({
   const to = group.members.find((m) => m.id === toMemberId);
   const me = group.members.find((m) => m.id === myMemberId);
   const sentAts = nudges.filter((n) => n.from_member === myMemberId && n.to_member === toMemberId).map((n) => n.sent_at);
-  const availability = nudgeAvailability(sentAts, rules, now);
+  // What the server said last time it refused (works even before the rules load, or with an older server).
+  const [refused, setRefused] = useState<Exclude<NudgeAvailability, { state: "ready" }> | null>(null);
+  const local = nudgeAvailability(sentAts, rules, now);
+  const availability: NudgeAvailability =
+    refused && refused.at > now && (local.state === "ready" || refused.at > local.at) ? refused : local;
   const blocked = availability.state !== "ready";
 
   // Tick once a second only while blocked, so the countdown is live and the button comes back by itself.
@@ -51,7 +55,7 @@ export function NudgeButton({
   if (!to || to.is_ghost || to.left_at || group.nudge_mode === "off" || group.archived_at) return null;
   const disabled = send.isPending || blocked;
   const label =
-    availability.state === "cap" ? "Daily nudge limit reached" : availability.state === "cooldown" ? `Nudge again in ${countdown(availability.at, now)}` : null;
+    availability.state === "cap" ? DAILY_CAP_TEXT : availability.state === "cooldown" ? `Nudge again in ${countdown(availability.at, now)}` : null;
 
   return (
     <button
@@ -74,13 +78,21 @@ export function NudgeButton({
                 })}”`,
                 duration: 6000,
               }),
-            onError: (err) => show({ message: `Couldn't nudge: ${friendlyError(err)}` }),
+            onError: (err) => {
+              const retry = nudgeRetry(err);
+              if (retry) {
+                setRefused(retry);
+                setNow(Date.now());
+              }
+              show({ message: nudgeRetryText(retry) ?? `Couldn't nudge: ${friendlyError(err)}` });
+            },
           },
         )
       }
       title={label ?? undefined}
       className={cn(
         "flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-semibold text-ink disabled:opacity-50",
+        availability.state === "cap" && "h-auto min-h-10 whitespace-normal py-1.5 text-center leading-tight",
         className,
       )}
     >

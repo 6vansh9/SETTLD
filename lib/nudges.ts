@@ -105,11 +105,41 @@ export function nudgeAvailability(sentAts: readonly string[], rules: NudgeRules 
   return last !== undefined && at > now ? { state: "cooldown", at } : { state: "ready" };
 }
 
-/** "1:42" (or "1:02:05" past an hour) until `at`, rounded up to the next second. */
+/** "1:42" until `at` (rounded up to the next second); past an hour "4 h 12 min". Relative, so always in the phone's own time. */
 export function countdown(at: number, now: number = Date.now()): string {
   const secs = Math.max(0, Math.ceil((at - now) / 1000));
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const ss = String(secs % 60).padStart(2, "0");
-  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+  if (secs >= 3600) {
+    const mins = Math.ceil(secs / 60);
+    return `${Math.floor(mins / 60)} h ${mins % 60} min`;
+  }
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+}
+
+export const DAILY_CAP_TEXT = "Daily nudge limit reached · try again tomorrow";
+
+/**
+ * A refused nudge → when it's allowed again. Reads the retry time from the error detail
+ * ("retry_at=…", 0014), and also understands older servers ("…again at 2026-10-06T14:35:34Z",
+ * "…again in 1:42"), so a raw timestamp never reaches the screen.
+ */
+export function nudgeRetry(error: unknown, now: number = Date.now()): { state: "cooldown" | "cap"; at: number } | null {
+  if (!error || typeof error !== "object") return null;
+  const e = error as { message?: unknown; details?: unknown };
+  const message = typeof e.message === "string" ? e.message : "";
+  const details = typeof e.details === "string" ? e.details : "";
+  const cap = /daily nudge limit/i.test(message);
+  if (!cap && !/nudge (them )?again/i.test(message)) return null;
+  const iso = /retry_at=(\S+)/.exec(details)?.[1] ?? /again at (\d{4}-\d\d-\d\dT[\d:.]+Z)/.exec(message)?.[1];
+  let at = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(at)) {
+    const mmss = /again in (\d+):(\d\d)/.exec(message);
+    at = mmss ? now + (Number(mmss[1]) * 60 + Number(mmss[2])) * 1000 : cap ? now + DAY_MS : NaN;
+  }
+  return Number.isFinite(at) ? { state: cap ? "cap" : "cooldown", at } : null;
+}
+
+/** What to say for a refused nudge: "Nudge again in 1:42", the daily-cap line, or null if it wasn't about timing. */
+export function nudgeRetryText(retry: { state: "cooldown" | "cap"; at: number } | null, now: number = Date.now()): string | null {
+  if (!retry) return null;
+  return retry.state === "cap" ? DAILY_CAP_TEXT : `Nudge again in ${countdown(retry.at, now)}`;
 }

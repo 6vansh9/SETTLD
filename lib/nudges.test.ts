@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysText, nudgeAvailability, countdown, NUDGE_TEMPLATES, nudgeText, randomTemplate } from "./nudges";
+import { daysText, nudgeAvailability, countdown, nudgeRetry, nudgeRetryText, DAILY_CAP_TEXT, NUDGE_TEMPLATES, nudgeText, randomTemplate } from "./nudges";
 
 describe("nudge templates", () => {
   it("about 10 per level, every one mentions the amount and leaves no placeholder behind", () => {
@@ -41,7 +41,8 @@ describe("nudge templates", () => {
     expect(countdown(at("2026-10-05T12:01:42Z"), now)).toBe("1:42");
     expect(countdown(at("2026-10-05T12:00:00.200Z"), now)).toBe("0:01"); // rounds up: never shows 0:00 while blocked
     expect(countdown(now - 5, now)).toBe("0:00");
-    expect(countdown(now + 3_725_000, now)).toBe("1:02:05");
+    expect(countdown(now + 3_725_000, now)).toBe("1 h 3 min");
+    expect(countdown(now + 19 * 3_600_000, now)).toBe("19 h 0 min");
   });
 
   it("daily cap: 10 in a rolling 24 h; frees up when the oldest of them is a day old", () => {
@@ -55,5 +56,23 @@ describe("nudge templates", () => {
 
   it("rules not loaded (or offline): the button stays usable; the server decides", () => {
     expect(nudgeAvailability([new Date().toISOString()], null)).toEqual({ state: "ready" });
+  });
+
+  it("refused nudges become a countdown, never a raw timestamp (new and old servers)", () => {
+    const now = Date.parse("2026-10-06T14:33:52Z");
+    const fresh = { message: "Nudge again in 1:42", details: "retry_at=2026-10-06T14:35:34.000Z" };
+    expect(nudgeRetry(fresh, now)).toEqual({ state: "cooldown", at: Date.parse("2026-10-06T14:35:34Z") });
+    expect(nudgeRetryText(nudgeRetry(fresh, now), now)).toBe("Nudge again in 1:42");
+    // The original 24 h server: "You can nudge them again at <ISO>".
+    const legacy = { message: "You can nudge them again at 2026-10-06T19:27:00Z" };
+    expect(nudgeRetryText(nudgeRetry(legacy, now), now)).toBe("Nudge again in 4 h 54 min");
+    // 0013's wording, no detail.
+    expect(nudgeRetry({ message: "You can nudge them again in 0:30" }, now)).toEqual({ state: "cooldown", at: now + 30_000 });
+    const cap = { message: "Daily nudge limit reached · try again tomorrow", details: "retry_at=2026-10-07T05:12:08Z" };
+    expect(nudgeRetry(cap, now)).toEqual({ state: "cap", at: Date.parse("2026-10-07T05:12:08Z") });
+    expect(nudgeRetryText(nudgeRetry({ message: "Daily nudge limit reached" }, now), now)).toBe(DAILY_CAP_TEXT);
+    for (const e of [fresh, legacy, cap]) expect(nudgeRetryText(nudgeRetry(e, now), now)).not.toMatch(/\d{4}-\d\d-\d\dT/);
+    expect(nudgeRetry({ message: "They don't owe you anything right now" }, now)).toBeNull();
+    expect(nudgeRetry(null, now)).toBeNull();
   });
 });
