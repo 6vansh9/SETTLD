@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { SITE_URL } from "@/lib/site";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export async function POST() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   if (!admin || !publicKey || !privateKey) return NextResponse.json({ error: "push not configured" }, { status: 500 });
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "https://settld-omega.vercel.app", publicKey, privateKey);
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || SITE_URL, publicKey, privateKey);
   const { data: subs } = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth").eq("user_id", user.id);
   let sent = 0;
   const dead: string[] = [];

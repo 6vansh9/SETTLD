@@ -2,6 +2,7 @@ import webpush from "web-push";
 import { isCurrencyCode } from "@/lib/money";
 import { commentTarget, pushMessages, type ActivityRecord, type PushContext, type PushMember } from "@/lib/push-messages";
 import type { createAdminClient } from "@/lib/supabase/admin";
+import { SITE_URL } from "@/lib/site";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -85,7 +86,7 @@ export async function deliverActivityPush(admin: Admin, a: ActivityRecord, via: 
   const { data: subs } = await admin.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth").in("user_id", userIds);
   if (!subs?.length) return done({ recipients: userIds.length, devices: 0, sent: 0, removed: 0, failed: 0, skipped: `no devices registered for ${userIds.map(short).join(", ")}` });
 
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "https://settld-omega.vercel.app", publicKey, privateKey);
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || SITE_URL, publicKey, privateKey);
   const dead: string[] = [];
   const used: string[] = [];
   let failed = 0;

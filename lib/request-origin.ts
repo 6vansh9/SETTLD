@@ -1,5 +1,6 @@
 /**
- * The public origin of a request (e.g. https://settld-omega.vercel.app), never a configured URL.
+ * The public origin of a request (e.g. https://settld00.vercel.app), never a configured URL.
+ * Used for auth redirects so they always come back to the address the person is on.
  * Prefers Vercel's x-forwarded-host/proto (what the user's browser actually used), validated so a
  * spoofed header can't turn into an open redirect, then falls back to the request URL itself.
  */

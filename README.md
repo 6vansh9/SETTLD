@@ -140,6 +140,7 @@ Names only. Never commit values; `.env.local` is git-ignored.
 | `VAPID_PRIVATE_KEY` | server only | Web Push private key |
 | `VAPID_SUBJECT` | server only | Your site URL (or a `mailto:`) |
 | `PUSH_WEBHOOK_SECRET` | server only | Shared secret for the database → push webhook |
+| `NEXT_PUBLIC_SITE_URL` | optional | Public address used in links, share text and Open Graph (defaults to `https://settld00.vercel.app`; sign-in redirects always use the current address) |
 
 ---
 

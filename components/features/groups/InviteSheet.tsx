@@ -9,6 +9,7 @@ import { pastelVar } from "@/lib/pastels";
 import { useInviteToken, useRegenerateInvite } from "@/lib/queries/groups";
 import { copyText, shareOrCopy } from "@/lib/share";
 import { QrCode } from "./QrCode";
+import { SITE_URL } from "@/lib/site";
 
 export function InviteSheet({
   open,
@@ -31,19 +32,17 @@ export function InviteSheet({
 function InviteBody({ group, isAdmin }: { group: GroupWithMembers; isAdmin: boolean }) {
   const { data: token, isLoading, error } = useInviteToken(group.id);
   const regenerate = useRegenerateInvite(group.id);
-  const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => setOrigin(window.location.origin), []);
   useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 2000);
     return () => clearTimeout(t);
   }, [copied]);
 
-  const url = token && origin ? inviteUrl(origin, token) : "";
+  const url = token ? inviteUrl(SITE_URL, token) : "";
   const text = url ? inviteShareText(group, url) : "";
 
   const share = async () => {

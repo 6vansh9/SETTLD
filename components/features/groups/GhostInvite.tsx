@@ -11,6 +11,7 @@ import { isIOS } from "@/lib/push-client";
 import { useSetGhostPhone } from "@/lib/queries/phone";
 import { useGhostClaimLink } from "@/lib/queries/groups";
 import { copyText } from "@/lib/share";
+import { SITE_URL } from "@/lib/site";
 
 /**
  * "Send invite" for a ghost: their personal claim link in a friendly message, by WhatsApp or SMS
@@ -43,7 +44,7 @@ export function SendInvitePanel({
     let alive = true;
     claimLink
       .mutateAsync(memberId)
-      .then((token) => alive && setUrl(inviteUrl(window.location.origin, token)))
+      .then((token) => alive && setUrl(inviteUrl(SITE_URL, token)))
       .catch((e) => alive && setError(friendlyError(e)));
     return () => {
       alive = false;

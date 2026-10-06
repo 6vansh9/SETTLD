@@ -20,6 +20,7 @@ import type { SplitRoomItem } from "@/lib/supabase/types";
 import { HostEditor } from "./HostEditor";
 import { BreakdownSheet, FinalizeSheet, SharesSheet } from "./RoomSheets";
 import { RoomEnd } from "./RoomEnd";
+import { SITE_URL } from "@/lib/site";
 
 const LONG_PRESS_MS = 450;
 
@@ -271,10 +272,8 @@ function ChargesLine({ bill, d, currency }: { bill: RoomBill; d: RoomData; curre
 type RoomScreenCurrency = GroupWithMembers["base_currency"];
 
 function ShareCard({ code }: { code: string }) {
-  const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
-  useEffect(() => setOrigin(window.location.origin), []);
-  const url = origin ? roomUrl(origin, code) : "";
+  const url = roomUrl(SITE_URL, code);
   return (
     <div className="mt-5 flex items-center gap-4 rounded-2xl border-[1.5px] border-on-pastel/[0.08] bg-surface p-3 text-ink">
       {url ? <QrCode value={url} label={`QR code to join room ${code}`} className="size-[104px] shrink-0 rounded-xl p-2" /> : <span className="size-[104px] shrink-0 rounded-xl bg-white" />}

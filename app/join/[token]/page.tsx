@@ -1,11 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { JoinScreen, type InvitePreview } from "@/components/features/join/JoinScreen";
 import { getUserAndProfile } from "@/lib/auth";
 import { PASTEL_HEX } from "@/lib/pastels";
-import { requestOrigin } from "@/lib/request-origin";
+import { SITE_URL } from "@/lib/site";
 import { friendlyError } from "@/lib/groups";
 import { createClient } from "@/lib/supabase/server";
 
@@ -23,9 +22,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!preview) return { title: "Invite expired · Settld", robots: { index: false } };
 
   const title = `Join ${preview.name} on Settld`;
-  const h = headers();
-  const origin = requestOrigin(h, `https://${h.get("host") ?? "settld-omega.vercel.app"}/`);
-  const image = `${origin}/api/og/invite/${encodeURIComponent(params.token)}`;
+  const image = `${SITE_URL}/api/og/invite/${encodeURIComponent(params.token)}`;
   const description = `${preview.emoji} ${preview.member_count} ${
     preview.member_count === 1 ? "person is" : "people are"
   } splitting expenses live. Tap to join.`;
@@ -33,8 +30,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     title,
     description,
     robots: { index: false },
-    // Absolute URL from the request's own origin (WhatsApp/iMessage need it absolute).
+    // Absolute URLs on the public address (WhatsApp/iMessage need them absolute).
+    alternates: { canonical: `${SITE_URL}/join/${params.token}` },
     openGraph: {
+      url: `${SITE_URL}/join/${params.token}`,
       title,
       description,
       siteName: "Settld",

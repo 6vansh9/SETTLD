@@ -33,9 +33,9 @@ describe("phone formatting", () => {
 });
 
 describe("ghost invites", () => {
-  const text = ghostInviteText("Rahul Mehta", "Goa Trip", "https://settld-omega.vercel.app/join/abc");
+  const text = ghostInviteText("Rahul Mehta", "Goa Trip", "https://settld00.vercel.app/join/abc");
   it("friendly message with the personal link", () => {
-    expect(text).toBe("Hey Rahul, I added you to Goa Trip on Settld so we can split costs. Tap to join: https://settld-omega.vercel.app/join/abc");
+    expect(text).toBe("Hey Rahul, I added you to Goa Trip on Settld so we can split costs. Tap to join: https://settld00.vercel.app/join/abc");
   });
   it("WhatsApp: digits only; no number → pick a chat", () => {
     expect(whatsappInviteUrl("+919000011111", "hi there")).toBe("https://wa.me/919000011111?text=hi%20there");

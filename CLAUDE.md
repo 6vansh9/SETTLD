@@ -528,3 +528,16 @@
   - No JWTs, no Resend keys, no `.env` files except `.env.local.example` (placeholders only).
   - The only `push_webhook_secret` literal is the E2E template variable.
   - Safe to make the repo public.
+
+### Domain switch to settld00.vercel.app (2026-10-06, user request)
+
+- `lib/site.ts` `SITE_URL` (`NEXT_PUBLIC_SITE_URL` overrides; default `https://settld00.vercel.app`) is used for:
+  - `metadataBase` and the default Open Graph in `app/layout.tsx`;
+  - the join page's Open Graph URL, canonical and image;
+  - group and ghost invite links and share text (`InviteSheet`, `GhostInvite`);
+  - Split Room links and QR (`RoomScreen`);
+  - the VAPID subject fallback.
+- Auth redirects deliberately still use the current origin (`AuthPanel`, `lib/auth-return.ts` via `requestOrigin`).
+- The manifest is relative (start_url `/groups`), so nothing to change.
+- Vercel `VAPID_SUBJECT` set to `https://settld00.vercel.app` in all three environments; `.env.local` updated too.
+- Still for the user: Supabase Auth Site URL / Redirect URLs and `private.app_settings.push_webhook_url` → settld00.

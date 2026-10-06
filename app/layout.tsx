@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { SITE_URL } from "@/lib/site";
 import { Anton, Big_Shoulders_Display, Inter, Jersey_10 } from "next/font/google";
 import { themeScript } from "@/components/providers/ThemeProvider";
 import Script from "next/script";
@@ -27,8 +28,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  // Absolute URLs in metadata (Open Graph, icons) resolve against the public address.
+  metadataBase: new URL(SITE_URL),
   title: "Settld",
   description: "Split it. Settle it. Shared expenses, live.",
+  openGraph: { siteName: "Settld", type: "website", url: SITE_URL, title: "Settld", description: "Split it. Settle it. Shared expenses, live." },
   // Home Screen app on iPhone (standalone), which is also what enables Web Push there.
   appleWebApp: { capable: true, title: "Settld", statusBarStyle: "default", startupImage: splashScreens() },
   // Generated from public/brand/settld-icon-pixel.svg by scripts/build-icons.mjs.

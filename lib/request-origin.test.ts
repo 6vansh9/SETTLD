@@ -5,8 +5,8 @@ const h = (o: Record<string, string>) => new Headers(o);
 
 describe("requestOrigin", () => {
   it("uses the forwarded host the browser used (Vercel)", () => {
-    expect(requestOrigin(h({ "x-forwarded-host": "settld-omega.vercel.app", "x-forwarded-proto": "https" }), "http://localhost:3000/auth/callback")).toBe(
-      "https://settld-omega.vercel.app",
+    expect(requestOrigin(h({ "x-forwarded-host": "settld00.vercel.app", "x-forwarded-proto": "https" }), "http://localhost:3000/auth/callback")).toBe(
+      "https://settld00.vercel.app",
     );
   });
 
@@ -20,8 +20,8 @@ describe("requestOrigin", () => {
   });
 
   it("ignores malformed forwarded hosts (no open redirect)", () => {
-    expect(requestOrigin(h({ "x-forwarded-host": "evil.com/@x", "x-forwarded-proto": "https" }), "https://settld-omega.vercel.app/a")).toBe(
-      "https://settld-omega.vercel.app",
+    expect(requestOrigin(h({ "x-forwarded-host": "evil.com/@x", "x-forwarded-proto": "https" }), "https://settld00.vercel.app/a")).toBe(
+      "https://settld00.vercel.app",
     );
     expect(requestOrigin(h({ "x-forwarded-host": "evil.com", "x-forwarded-proto": "javascript" }), "https://ok.app/a")).toBe("https://ok.app");
   });
