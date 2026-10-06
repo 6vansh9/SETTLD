@@ -8,6 +8,8 @@
 
 Settld is a mobile-first shared-expense app for trips, flats and dinners. Every change shows up on everyone's phone within about a second. Debts are simplified to the fewest payments, and you settle with a UPI deep link that opens GPay or PhonePe with the amount filled in. It's built to feel like a native app: it works offline, sends push notifications, and has no passwords.
 
+<p align="center"><img src="docs/screenshots/demo.gif" width="300" alt="Adding an expense with the command bar"></p>
+
 ---
 
 ## Features
@@ -25,16 +27,20 @@ Settld is a mobile-first shared-expense app for trips, flats and dinners. Every 
 | **Ghost members + phone invites** | Add friends who aren't on Settld yet by name (and an optional phone number), then send them a personal WhatsApp or SMS link. When they sign up through it, they take over that spot with all its history. |
 
 <p>
-  <img src="docs/screenshots/groups.png" width="200" alt="Home · groups">
+  <img src="docs/screenshots/groups.png" width="200" alt="Home: groups and totals">
+  <img src="docs/screenshots/group-header.png" width="200" alt="Group header with cover photo">
+  <img src="docs/screenshots/group.png" width="200" alt="Expense list">
   <img src="docs/screenshots/split-room.png" width="200" alt="Split Room">
-  <img src="docs/screenshots/debt-graph.png" width="200" alt="Debt Graph">
-  <img src="docs/screenshots/command-bar.png" width="200" alt="Command bar">
 </p>
 <p>
-  <img src="docs/screenshots/group.png" width="200" alt="Group · expenses">
-  <img src="docs/screenshots/settle-upi.png" width="200" alt="Settle up · UPI">
-  <img src="docs/screenshots/offline.png" width="200" alt="Offline mode">
-  <img src="docs/screenshots/push-nudge.png" width="200" alt="Push nudge">
+  <img src="docs/screenshots/debt-graph.png" width="200" alt="Debt Graph">
+  <img src="docs/screenshots/command-bar.png" width="200" alt="Command bar">
+  <img src="docs/screenshots/settle-upi.png" width="200" alt="Settle up with UPI">
+  <img src="docs/screenshots/push-nudge.png" width="200" alt="Balances with a nudge cooldown">
+</p>
+<p>
+  <img src="docs/screenshots/offline.png" width="200" alt="Offline mode: waiting to sync">
+  <img src="docs/screenshots/groups-dark.png" width="200" alt="Dark mode">
 </p>
 
 ---
@@ -111,6 +117,14 @@ cp .env.local.example .env.local   # then fill in the values (see below)
 npm run dev          # http://localhost:3000
 npm test             # unit + property tests (Vitest)
 npm run lint && npm run typecheck
+```
+
+**Demo data and screenshots** (on the project in `.env.local`; touches only the four `@example.com` demo accounts and their groups):
+
+```bash
+npm run demo:seed          # (re)create the demo: Goa Trip, Flat 4B, expenses, a payment, comments, an open Split Room
+npm run demo:screenshots   # capture docs/screenshots/ from the live site, signed in as the demo account
+npm run demo:remove        # delete all demo accounts and groups
 ```
 
 **End-to-end tests** run against a local Supabase stack (`supabase/config.toml` uses ports 563xx; migrations are applied automatically):

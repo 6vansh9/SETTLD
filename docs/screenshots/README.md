@@ -1,17 +1,26 @@
 # Screenshots
 
-Placeholders for the main README. Replace each PNG with a real screenshot using the same file name (the README already links them).
+Real captures of the live app (https://settld00.vercel.app) signed in as the demo account, at iPhone 14 size (390×844 @3x). Regenerate them with:
 
-| File | What to capture | Size |
-| --- | --- | --- |
-| `hero.png` | A wide hero: 2–3 phone screens side by side (Home, a group, Split Room) | 1600×900 |
-| `groups.png` | Home with a few group cards (one with a cover photo) | phone (390×844 @2x or 3x) |
-| `group.png` | A group with expenses, the WHO'S PAID bar and your balance | phone |
-| `split-room.png` | A Split Room mid-bill: items claimed, MY TOTAL footer | phone |
-| `debt-graph.png` | The Graph tab, simplified view | phone |
-| `command-bar.png` | The command bar with `dinner 2400 paid by aman` and its preview | phone |
-| `settle-upi.png` | Settle up sheet with "Pay via UPI" | phone |
-| `offline.png` | "Offline · showing saved data" banner and a "Waiting to sync" expense | phone |
-| `push-nudge.png` | A nudge notification on the lock screen | phone |
+```bash
+npm run demo:seed          # fresh demo data (demo accounts and groups only)
+npm run demo:screenshots   # captures everything below (PW_CHROMIUM=/path/to/Chrome-or-Brave optional)
+```
 
-Tip: Chrome DevTools device mode at 390×844 → ⋮ → Capture screenshot. Use demo data, not real people's names or numbers.
+The capture fails if any offline/sync banner, skeleton loader or toast is visible (except `offline.png`, which shows offline mode on purpose).
+
+| File | What it shows |
+| --- | --- |
+| `hero.png` | Group header, expense list and Split Room on the brand background (1600×900) |
+| `groups.png` / `groups-dark.png` | Home: you owe / you're owed, Flat 4B and Goa Trip (cover photo), light and dark |
+| `group-header.png` | Goa Trip header: cover photo, your balance, WHO'S PAID |
+| `group.png` | Expense list: a confirmed UPI payment, a USD expense, unread comment dots |
+| `debt-graph.png` | Debt Graph, simplified view |
+| `push-nudge.png` | Balances: who pays whom, with a nudge's live cooldown ("Nudge again in 59:32") |
+| `command-bar.png` | Command bar parsing `dinner 2400 paid by aman` with its preview |
+| `settle-upi.png` | Settle up: You pay Aman, Pay via UPI |
+| `split-room.png` | Split Room: items partly claimed, MY TOTAL, Finalize waiting on unclaimed items |
+| `offline.png` | Offline banner and an expense waiting to sync |
+| `demo.gif` | Adding an expense with the command bar (≈10 s) |
+
+A nudge as a lock-screen notification needs a real phone: add `push-lockscreen.png` by hand if you want one.

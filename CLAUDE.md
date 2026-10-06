@@ -541,3 +541,26 @@
 - The manifest is relative (start_url `/groups`), so nothing to change.
 - Vercel `VAPID_SUBJECT` set to `https://settld00.vercel.app` in all three environments; `.env.local` updated too.
 - Still for the user: Supabase Auth Site URL / Redirect URLs and `private.app_settings.push_webhook_url` → settld00.
+
+### Real README screenshots from the live app (2026-10-06, user request)
+
+- **`scripts/seed-demo.mts`** (`npm run demo:seed` / `npm run demo:remove`; Node 22.18+ runs it directly):
+  - **Accounts:** 4 demo accounts on `@example.com` (Vansh, Aman, Priya, Kabir) with fake UPI IDs and `+91 70000 0000x` numbers, created through the admin API.
+  - **Data:**
+    - two groups: Goa Trip 🏝️ with a generated sunset-beach cover, and Flat 4B;
+    - 8 expenses, including $180 scuba at a locked ₹83.42;
+    - a confirmed UPI settlement, reactions, comments, a nudge;
+    - an open Split Room "Thalassa dinner" with 8 items, 2 unclaimed.
+  - **Writes:** all go through the app's RPCs as the demo users (magic-link token, no email).
+  - **Removal:** deletes only groups whose members are all demo accounts. It removes children in order (some member FKs don't cascade), the cover files, then the accounts.
+  - **Order:** seed always removes first. Run `demo:seed` before `demo:screenshots`; the Split Room expires after 12 h.
+- **`scripts/capture-screenshots.mts`** (`npm run demo:screenshots`):
+  - Playwright against `SITE` (default settld00), signed in with an admin-generated magic link via `/auth/confirm`.
+  - 390×844 @3x, light, reduced motion.
+  - Each shot fails if a banner, skeleton or toast is visible; `offline.png` is the deliberate exception, and that browser is closed while offline so nothing syncs.
+  - Writes the stills, groups-dark, the hero composite (sharp) and demo.gif (Playwright video → ffmpeg; needs `npx playwright install ffmpeg` once).
+  - `ONLY=light,dark,offline,hero,gif` re-runs parts.
+- **Bugs found by capturing the live site, fixed:**
+  1. **"Waiting to sync" badges invisible after reloading offline:** the queue hook needed the profile. It now falls back to the stored session. E2E covers it.
+  2. **A false "Offline" banner for several seconds on a cold start:** one slow `/api/version` probe flipped it. It now needs two failures in a row unless the browser itself reports offline (unit tested).
+- `docs/screenshots/README.md` lists each file. The README has the GIF, a 10-image gallery and the demo commands.

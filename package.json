@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "demo:seed": "node scripts/seed-demo.mts",
+    "demo:remove": "node scripts/seed-demo.mts --remove",
+    "demo:screenshots": "node scripts/capture-screenshots.mts"
   },
   "dependencies": {
     "@serwist/next": "^9.5.13",
