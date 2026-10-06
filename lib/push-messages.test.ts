@@ -112,4 +112,19 @@ describe("push recipients and text", () => {
     const noAdder = ctx({ members: claimed.members.map((x) => (x.id === "mA" ? { ...x, role: "admin" } : x)) });
     expect(users(pushMessages(act("ghost_claimed", "mZ", { ghost_name: "Zoya" }, "mZ"), noAdder))).toEqual(["uA"]);
   });
+
+  it("nudges: exactly one push, to the receiver, never the sender; All and Only money send, Off blocks", () => {
+    const a = act("nudge_sent", "mV", { to_member: "mA", level: 1, template: 0, amount: 34000, base_currency: "INR", days: 2 }, "n9");
+    const out = pushMessages(a, ctx());
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ userId: "uA", title: "Settld · Goa", url: "/g/g1?tab=balances", tag: "nudge_sent:n9" });
+    expect(users(out)).not.toContain("uV");
+    const level = (l: PushMember["notify_level"]) => ctx({ members: members.map((x) => (x.id === "mA" ? { ...x, notify_level: l } : x)) });
+    expect(users(pushMessages(a, level("all")))).toEqual(["uA"]);
+    expect(users(pushMessages(a, level("money")))).toEqual(["uA"]);
+    expect(pushMessages(a, level("off"))).toEqual([]);
+    // The sender's own "Off" doesn't stop the receiver hearing about it.
+    const senderOff = ctx({ members: members.map((x) => (x.id === "mV" ? { ...x, notify_level: "off" as const } : x)) });
+    expect(users(pushMessages(a, senderOff))).toEqual(["uA"]);
+  });
 });

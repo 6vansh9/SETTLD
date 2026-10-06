@@ -67,7 +67,7 @@ export function NudgeButton({
           {
             onSuccess: (n) =>
               show({
-                message: `Nudged ${to.display_name.split(" ")[0]} (level ${n.level}): “${nudgeText({
+                message: `Nudged ${to.display_name.split(" ")[0]}${n.delivered ? " · sent to their phone" : n.delivered === false ? " · they'll see it in Settld" : ""}: “${nudgeText({
                   level: n.level,
                   template: n.template,
                   name: to.display_name,

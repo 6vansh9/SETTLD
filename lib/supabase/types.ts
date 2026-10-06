@@ -342,9 +342,10 @@ export interface Database {
         Relationships: [];
       };
       nudges: {
-        Row: { id: string; group_id: string; from_member: string; to_member: string; level: number; amount: number; days: number; template: number; sent_at: string };
+        Row: { id: string; group_id: string; from_member: string; to_member: string; level: number; amount: number; days: number; template: number; sent_at: string; pushed_at?: string | null };
         Insert: never;
-        Update: never;
+        /** Service role only: claims the push (0015). */
+        Update: { pushed_at?: string | null };
         Relationships: [];
       };
       push_subscriptions: {

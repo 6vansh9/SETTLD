@@ -17,7 +17,7 @@ import { db, emailSignIn, onboard, uniqueEmail } from "./helpers";
  * like the phone would, and check who got what.
  */
 type Row = Record<string, unknown>;
-type Push = { device: string; title: string; body: string; url: string };
+type Push = { device: string; title: string; body: string; url: string; tag?: string };
 
 const PUSH_PORT = 3999;
 const SECRET = "e2e-webhook-secret"; // playwright.config.ts gives the E2E server this one
@@ -114,22 +114,40 @@ test("expense and nudge pushes reach the right phone with the right words", asyn
     const [expense] = await db<Row[]>(`expenses?group_id=eq.${groupId}&select=id`);
     expect(ps.got[0]).toEqual({ device: "riya", title: "Settld · Goa Trip", body: "Aman added Dinner · ₹2,400 · you owe ₹1,200", url: `/g/${groupId}?open=expense%3A${expense.id}`, tag: `expense_created:${expense.id}` });
 
-    // Aman nudges Riya from Balances: a real notification, tapping opens Balances.
+    // Aman nudges Riya from Balances: exactly one notification, to Riya only, even though both the
+    // database webhook and the app's direct call try to send it. Tapping opens Balances.
     await aman.page.getByRole("tab", { name: "Balances" }).click();
     await aman.page.getByRole("button", { name: /^nudge$/i }).first().click();
+    await expect(aman.page.getByText(/sent to their phone/i)).toBeVisible();
     await expect.poll(() => ps.got.length, { timeout: 20_000 }).toBe(2);
+    await aman.page.waitForTimeout(4000); // give a duplicate time to show up
+    const nudges = () => ps.got.filter((p) => p.tag?.startsWith("nudge_sent:"));
+    expect(nudges()).toHaveLength(1);
+    expect(nudges()[0]).toMatchObject({ device: "riya", title: "Settld · Goa Trip", url: `/g/${groupId}?tab=balances` });
+    expect(nudges()[0].body).toContain("₹1,200");
+    expect(ps.got.some((p) => p.device === "aman")).toBe(false); // never the person who acted
+
     // The button counts down (2-minute cooldown) instead of sending again.
     const again = aman.page.getByRole("button", { name: /nudge again in [12]:[0-5]\d/i }).first();
     await expect(again).toBeDisabled();
     const t1 = await again.textContent();
     await aman.page.waitForTimeout(2100);
     expect(await aman.page.getByRole("button", { name: /nudge again in/i }).first().textContent()).not.toBe(t1); // live, no reload
-    expect(ps.got[1]).toMatchObject({ device: "riya", title: "Settld · Goa Trip", url: `/g/${groupId}?tab=balances` });
-    expect(ps.got[1].body).toContain("₹1,200");
-    expect(ps.got.some((p) => p.device === "aman")).toBe(false); // never the person who acted
+
+    // Webhook broken (as it may be in production) and Riya on "Only money stuff": the nudge still
+    // arrives, through the app's direct call.
+    psql(`delete from private.app_settings where key in ('push_webhook_url', 'push_webhook_secret');
+          update public.nudges set sent_at = sent_at - interval '3 minutes' where group_id = '${groupId}';
+          update public.group_members set notify_level = 'money' where group_id = '${groupId}' and display_name = 'Riya';`);
+    await aman.page.reload();
+    await aman.page.getByRole("tab", { name: "Balances" }).click();
+    await aman.page.getByRole("button", { name: /^nudge$/i }).first().click();
+    await expect.poll(() => nudges().length, { timeout: 20_000 }).toBe(2);
+    expect(nudges()[1]).toMatchObject({ device: "riya", title: "Settld · Goa Trip" });
+    expect(ps.got.some((p) => p.device === "aman")).toBe(false);
 
     // The tap: the notification's URL opens Balances.
-    await riya.page.goto(ps.got[1].url);
+    await riya.page.goto(nudges()[0].url);
     await expect(riya.page.getByRole("tab", { name: "Balances" })).toHaveAttribute("aria-selected", "true");
 
     await aman.context.close();

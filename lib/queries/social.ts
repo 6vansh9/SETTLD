@@ -143,6 +143,26 @@ export function useNudges(groupId: string) {
   });
 }
 
+/** Ask the server to send this nudge's push now. true = it went out; null = couldn't tell (never throws). */
+async function pushNudge(nudgeId: string): Promise<boolean | null> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 10_000);
+  try {
+    const res = await fetch("/api/push/nudge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nudgeId }),
+      signal: ctrl.signal,
+    });
+    const body = (await res.json().catch(() => null)) as { delivered?: boolean } | null;
+    return res.ok ? !!body?.delivered : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 /** The nudge limits from the database (public.nudge_rules), for the button's countdown. */
 export function useNudgeRules() {
   return useQuery({
@@ -159,8 +179,12 @@ export function useNudgeRules() {
 export function useSendNudge(groupId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { toMember: string; amount: number; template: number }) =>
-      rpc(createClient().rpc("send_nudge", { p_to_member: v.toMember, p_amount: v.amount, p_template: v.template })),
+    mutationFn: async (v: { toMember: string; amount: number; template: number }) => {
+      const row = await rpc(createClient().rpc("send_nudge", { p_to_member: v.toMember, p_amount: v.amount, p_template: v.template }));
+      // Push it from here too, so it never depends on the database webhook alone (0015 dedupes).
+      const delivered = await pushNudge(row.id);
+      return { ...row, delivered };
+    },
     onSuccess: (row) => qc.setQueryData<Nudge[]>(socialKeys.nudges(groupId), (list) => [{ ...row, amount: Number(row.amount) }, ...(list ?? [])]),
     onSettled: () => void qc.invalidateQueries({ queryKey: socialKeys.nudges(groupId) }),
   });

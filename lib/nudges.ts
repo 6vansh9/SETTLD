@@ -76,7 +76,7 @@ export function nudgeText(o: { level: number; template: number; name: string; fr
 
 /**
  * The limits live in ONE place: the database function public.nudge_rules()
- * (supabase/migrations/0013_nudge_rules.sql). send_nudge enforces them; the app reads them
+ * (supabase/migrations/0014_nudge_cooldown_patch.sql). send_nudge enforces them; the app reads them
  * (useNudgeRules) only to show the countdown. Change them there; no deploy needed.
  */
 export interface NudgeRules {

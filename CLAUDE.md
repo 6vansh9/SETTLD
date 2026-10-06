@@ -497,3 +497,21 @@
   - Verified starting from the old 0009 function.
   - Checks: `supabase/checks/0014_checks.sql` (17 checks, including "after 1 minute: still refused" and "after 2 minutes: second nudge succeeds").
 - **Client:** `nudgeRetry` / `nudgeRetryText` (tested) turn any refusal (new detail, old "again at ISO", 0013's "again in m:ss") into a local countdown. The button adopts the server's retry time; long waits read "4 h 12 min". The cap label wraps.
+
+### Fix — nudges not arriving as phone notifications (2026-10-06)
+
+- **Trace:** in code, every step was correct:
+  - `send_nudge` logs `nudge_sent`, and both the trigger and the route kinds include it;
+  - recipient `to_member` → `user_id` → subscriptions;
+  - the actor check skips only the sender;
+  - nudges count as money, so only Off blocks them;
+  - text, title and tap URL are right.
+- **What differed in production:** the database → pg_net → webhook hop. "Send test notification" doesn't use it. The hop is either not configured (`private.app_settings`) or timed out (5 s, and Vercel cancels a function whose caller left), so pushes were lost.
+- **Fix:**
+  - `lib/push-send.ts` `deliverActivityPush`: the shared sender for the webhook and for the new `/api/push/nudge`. The sender's phone calls the route right after `send_nudge`; it checks session + RLS (sender only), and the nudge must be ≤ 10 min old.
+  - `0015_push_delivery.sql`: `nudges.pushed_at` claim (no double sends), pg_net timeout 30 s, the trigger re-created, plus a health report (pg_net, trigger, kinds, webhook URL, secret set, column).
+  - Logs: `[push] <kind> <id> via webhook|direct {recipients, devices, sent, removed, failed, skipped}` plus a per-device `[push] ok|gone|error …` line; webhook 401s are logged.
+  - The toast says "· sent to their phone" / "· they'll see it in Settld".
+- **Tests:**
+  - Unit: one push to the receiver; All/Only money send, Off blocks.
+  - E2E `push.spec.ts`: both paths on → exactly 1 nudge push, to the receiver only; webhook removed + receiver on Only money → still delivered.
