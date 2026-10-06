@@ -4,7 +4,7 @@
 
 ![Settld](docs/screenshots/hero.png)
 
-**[Live demo → settld-omega.vercel.app](https://settld-omega.vercel.app)** · installable PWA (open it on your phone and Add to Home Screen)
+**[Live demo → settld00.vercel.app](https://settld00.vercel.app)** · installable PWA (open it on your phone and Add to Home Screen)
 
 Settld is a mobile-first shared-expense app for trips, flats and dinners. Every change shows up on everyone's phone within about a second. Debts are simplified to the fewest payments, and you settle with a UPI deep link that opens GPay or PhonePe with the amount filled in. It's built to feel like a native app: it works offline, sends push notifications, and has no passwords.
 
