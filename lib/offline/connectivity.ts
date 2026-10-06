@@ -17,20 +17,32 @@ function set(v: boolean) {
   listeners.forEach((l) => l());
 }
 
+let fails = 0;
+
+/**
+ * One failed check isn't "offline": a cold serverless start can take longer than the timeout,
+ * and showing "Offline" to someone who is online is worse than noticing a real outage 3 s later.
+ * So: offline at once only when the browser itself says so; otherwise after two failures in a row.
+ */
 export async function probe(): Promise<boolean> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    fails = 2;
     set(false);
     return false;
   }
+  let ok = false;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 5000);
     const res = await fetch("/api/version", { cache: "no-store", signal: ctrl.signal });
     clearTimeout(t);
-    set(res.ok);
+    ok = res.ok;
   } catch {
-    set(false);
+    ok = false;
   }
+  fails = ok ? 0 : fails + 1;
+  if (ok) set(true);
+  else if (fails >= 2) set(false);
   return reachable;
 }
 
@@ -39,7 +51,7 @@ function schedule() {
   timer = setTimeout(async () => {
     await probe();
     schedule();
-  }, reachable ? 60_000 : 8_000);
+  }, !reachable ? 8_000 : fails > 0 ? 3_000 : 60_000);
 }
 
 export function startConnectivity() {
