@@ -185,6 +185,9 @@ test("opens offline from the service worker with saved data", async ({ browser }
   await expect(alice.page.getByText(/offline · showing saved data/i)).toBeVisible();
   await expect(alice.page.getByText("Lunch").first()).toBeVisible();
   await expect(alice.page.getByText(/saved trip/i).first()).toBeVisible();
+  // Added after an offline reload: the profile can't load, but the queued change still shows.
+  await quickAdd(alice.page, "tea 50");
+  await expect(alice.page.getByText("Waiting to sync", { exact: true })).toHaveCount(1);
   // A page never opened before gets the offline screen, not a browser error.
   await alice.page.goto("/activity").catch(() => undefined);
   await expect(alice.page.getByText(/offline/i).first()).toBeVisible();
