@@ -9,6 +9,9 @@
  *  • Never cached: /auth/*, /login, /signup, /api/*, and everything from Supabase except public
  *    photos. No tokens or API JSON ever land in the SW cache (Supabase data is shown offline only
  *    through the cached pages, i.e. what the app already rendered).
+ *  • Not even intercepted: Supabase calls and /api/* fetches go straight to the network, so a
+ *    dropped connection fails the normal way (Safari wraps failures inside a worker as
+ *    "FetchEvent.respondWith received an error", which slipped past offline handling).
  *  • Push (Milestone 8): notifications and taps, unchanged.
  *  • Updates: a new worker waits; the app shows "New version · Reload" and sends SKIP_WAITING.
  */
@@ -36,14 +39,15 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
-    // Auth, our APIs, OG images (some private): network only.
-    { matcher: ({ url, sameOrigin }) => sameOrigin && NEVER.test(url.pathname), handler: new NetworkOnly() },
-    // Supabase public photos: fine to keep. Everything else from Supabase (auth, REST, RPC, realtime): never cached.
+    // Page loads of auth/join/etc.: network only (never cached), with the offline page as fallback.
+    // Their fetches (e.g. /api/*) aren't matched at all, so the browser handles them directly.
+    { matcher: ({ request, url, sameOrigin }) => sameOrigin && request.mode === "navigate" && NEVER.test(url.pathname), handler: new NetworkOnly() },
+    // Supabase public photos: fine to keep.
     {
       matcher: ({ url }) => url.hostname.endsWith(".supabase.co") && url.pathname.startsWith("/storage/v1/object/public/"),
       handler: new CacheFirst({ cacheName: PHOTO_CACHE, plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 30 * 86400 })] }),
     },
-    { matcher: ({ url, sameOrigin }) => !sameOrigin && /(^|\.)supabase\.co$/.test(url.hostname), handler: new NetworkOnly() },
+    // Everything else from Supabase (auth, REST, RPC): not matched, so never cached or intercepted.
     // RSC payloads for app routes (client-side navigation).
     {
       matcher: ({ request, url, sameOrigin }) => sameOrigin && APP_ROUTE.test(url.pathname) && (request.headers.get("RSC") === "1" || url.searchParams.has("_rsc")),

@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { isChunkError, reloadOnce } from "@/lib/chunk-error";
+import { isChunkError, isConnectionError, reloadOnce } from "@/lib/chunk-error";
 
 /** What to paste into a bug report: the error, where, and on what browser. */
-export function errorReport(error: Error & { digest?: string }, where: string, ua: string): string {
+export function errorReport(
+  error: Error & { digest?: string },
+  where: string,
+  ua: string,
+): string {
   const stack = (error.stack ?? "").split("\n").slice(0, 6).join("\n");
   return [
     `${error.name || "Error"}: ${error.message || String(error)}`,
@@ -12,7 +16,9 @@ export function errorReport(error: Error & { digest?: string }, where: string, u
     `page: ${where}`,
     `browser: ${ua}`,
     `time: ${new Date().toISOString()}`,
-    stack && !stack.startsWith(`${error.name}: ${error.message}`) ? stack : stack.split("\n").slice(1).join("\n"),
+    stack && !stack.startsWith(`${error.name}: ${error.message}`)
+      ? stack
+      : stack.split("\n").slice(1).join("\n"),
   ]
     .filter(Boolean)
     .join("\n");
@@ -20,63 +26,135 @@ export function errorReport(error: Error & { digest?: string }, where: string, u
 
 /**
  * Settld-style crash screen (app/error.tsx, app/global-error.tsx): short message, the actual error
- * in a copyable box, Reload. Stale-deploy chunk errors reload once by themselves.
+ * in a copyable box, Reload. Stale-deploy chunk errors reload once by themselves. A dropped
+ * connection (Safari's "Load failed" & co.) also reloads once when the phone is online, otherwise
+ * says so in plain words; the raw error stays available under "Details".
  */
-export function ErrorScreen({ error, reset }: { error: Error & { digest?: string }; reset?: () => void }) {
+export function ErrorScreen({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset?: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [reloading, setReloading] = useState(false);
+  const connection = isConnectionError(error);
+  const [offline, setOffline] = useState(false);
   const [env, setEnv] = useState({ where: "", ua: "" });
 
   useEffect(() => {
-    setEnv({ where: window.location.pathname + window.location.search, ua: navigator.userAgent });
+    setEnv({
+      where: window.location.pathname + window.location.search,
+      ua: navigator.userAgent,
+    });
     console.error(error);
     if (isChunkError(error) && reloadOnce()) setReloading(true);
-  }, [error]);
+    else if (connection) {
+      if (navigator.onLine !== false && reloadOnce()) setReloading(true);
+      else setOffline(navigator.onLine === false);
+    }
+  }, [error, connection]);
 
-  const report = useMemo(() => errorReport(error, env.where, env.ua), [error, env]);
+  const report = useMemo(
+    () => errorReport(error, env.where, env.ua),
+    [error, env],
+  );
 
   const copy = async () => {
     try {
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(report);
+      if (navigator.clipboard?.writeText)
+        await navigator.clipboard.writeText(report);
       else {
-        const el = document.getElementById("error-report") as HTMLTextAreaElement | null;
+        const el = document.getElementById(
+          "error-report",
+        ) as HTMLTextAreaElement | null;
         el?.select();
         document.execCommand("copy");
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      (document.getElementById("error-report") as HTMLTextAreaElement | null)?.select();
+      (
+        document.getElementById("error-report") as HTMLTextAreaElement | null
+      )?.select();
     }
   };
 
   return (
-    <main className="mx-auto flex min-h-[100vh] w-full max-w-app flex-col justify-center px-5 py-10" style={{ minHeight: "100dvh" }}>
-      <p aria-hidden className="font-display text-[96px] uppercase leading-[0.85] text-ink-faded">
-        {reloading ? "One" : "Oops"}
+    <main
+      className="mx-auto flex min-h-[100vh] w-full max-w-app flex-col justify-center px-5 py-10"
+      style={{ minHeight: "100dvh" }}
+    >
+      <p
+        aria-hidden
+        className="font-display text-[96px] uppercase leading-[0.85] text-ink-faded"
+      >
+        {reloading ? "One" : connection ? "No" : "Oops"}
         <br />
-        {reloading ? "sec" : "Broke"}
+        {reloading ? "sec" : connection ? "Signal" : "Broke"}
       </p>
-      <h1 className="mt-6 text-[20px] font-semibold">{reloading ? "Getting the latest version…" : "Something went wrong on this screen."}</h1>
+      <h1 className="mt-6 text-[20px] font-semibold">
+        {reloading
+          ? connection
+            ? "Reconnecting…"
+            : "Getting the latest version…"
+          : connection
+            ? offline
+              ? "You're offline."
+              : "The connection dropped while loading this screen."
+            : "Something went wrong on this screen."}
+      </h1>
       <p className="mt-2 text-[15px] font-medium text-ink/60">
         {reloading
-          ? "Settld was updated while this page was open. Reloading."
-          : "Reload usually fixes it. If it keeps happening, copy the details below and send them to us."}
+          ? connection
+            ? "The connection dropped for a moment. Loading this screen again."
+            : "Settld was updated while this page was open. Reloading."
+          : connection
+            ? "Your saved groups still open, and changes you make sync when you're back. Try again in a moment."
+            : "Reload usually fixes it. If it keeps happening, copy the details below and send them to us."}
       </p>
 
       {!reloading && (
         <>
-          <label htmlFor="error-report" className="micro mt-6 text-ink-faded">
-            Error details
-          </label>
-          <textarea
-            id="error-report"
-            readOnly
-            value={report}
-            rows={7}
-            onFocus={(e) => e.currentTarget.select()}
-            className="mt-2 w-full resize-none rounded-2xl border-[1.5px] border-ink/15 bg-surface p-3 font-mono text-[16px] leading-snug text-ink"
-          />
+          {connection ? (
+            <details className="mt-6">
+              <summary className="micro cursor-pointer text-ink-faded">
+                Details
+              </summary>
+              <label
+                htmlFor="error-report"
+                className="micro mt-6 text-ink-faded"
+              >
+                Error details
+              </label>
+              <textarea
+                id="error-report"
+                readOnly
+                value={report}
+                rows={7}
+                onFocus={(e) => e.currentTarget.select()}
+                className="mt-2 w-full resize-none rounded-2xl border-[1.5px] border-ink/15 bg-surface p-3 font-mono text-[16px] leading-snug text-ink"
+              />
+            </details>
+          ) : (
+            <>
+              <label
+                htmlFor="error-report"
+                className="micro mt-6 text-ink-faded"
+              >
+                Error details
+              </label>
+              <textarea
+                id="error-report"
+                readOnly
+                value={report}
+                rows={7}
+                onFocus={(e) => e.currentTarget.select()}
+                className="mt-2 w-full resize-none rounded-2xl border-[1.5px] border-ink/15 bg-surface p-3 font-mono text-[16px] leading-snug text-ink"
+              />
+            </>
+          )}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
               type="button"

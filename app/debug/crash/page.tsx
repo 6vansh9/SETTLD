@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
  * On-purpose crash for checking the error screen from a phone:
  *   /debug/crash               → a normal error (Settld error screen, copyable details)
  *   /debug/crash?kind=chunk    → a stale-deploy chunk error (reloads once, then the error screen)
+ *   /debug/crash?kind=network  → Safari's dropped-connection error through the service worker
+ *                                (reloads once when online, then the "No signal" screen)
  */
 export default function CrashTest() {
   const [kind, setKind] = useState<string | null>(null);
@@ -15,6 +17,7 @@ export default function CrashTest() {
     e.name = "ChunkLoadError";
     throw e;
   }
+  if (kind === "network") throw new TypeError("FetchEvent.respondWith received an error: TypeError: Load failed");
   if (kind) throw new Error("Test error, on purpose: the error screen works.");
   return null;
 }

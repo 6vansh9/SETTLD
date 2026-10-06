@@ -82,7 +82,7 @@ export function friendlyError(error: unknown): string {
   const message =
     typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : "";
   if (!message) return "Something went wrong. Try again.";
-  if (/failed to fetch|network/i.test(message)) return "You're offline. Check your connection and try again.";
+  if (/failed to fetch|network|load failed|respondwith|internet connection/i.test(message)) return "You're offline. Check your connection and try again.";
   if (/check constraint|violates|syntax|permission denied|JWT/i.test(message)) return "Something went wrong. Try again.";
   return message;
 }

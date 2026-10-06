@@ -564,3 +564,13 @@
   1. **"Waiting to sync" badges invisible after reloading offline:** the queue hook needed the profile. It now falls back to the stored session. E2E covers it.
   2. **A false "Offline" banner for several seconds on a cold start:** one slow `/api/version` probe flipped it. It now needs two failures in a row unless the browser itself reports offline (unit tested).
 - `docs/screenshots/README.md` lists each file. The README has the GIF, a 10-image gallery and the demo commands.
+
+### Fix — "FetchEvent.respondWith received an error: TypeError: Load failed" on iPhone (2026-10-06)
+
+- **What it is:** Safari's wording when a request handled by the service worker fails on the network. Reported on /activity (iOS 18.6, Safari 26).
+- **Most likely cause (not reproduced):** a connection drop during an in-app navigation. The page payload streams through the worker, and a mid-stream failure surfaces in render, which hits the error boundary and showed the raw error.
+- **Fixes:**
+  - **Error screen:** `isConnectionError` (`lib/chunk-error.ts`, tested) covers Safari/Chrome/Firefox wordings. `ErrorScreen` reloads once (30 s guard, shared with chunk errors) when online. Otherwise it shows "NO SIGNAL" with plain words, raw details behind a "Details" toggle.
+  - **Worker:** `app/sw.ts` no longer intercepts Supabase calls or `/api/*` fetches (it only cached nothing for them), so they fail the normal way. Navigations to auth/join pages still get the `/~offline` fallback.
+  - **Error text:** `friendlyError` recognises "Load failed" / "respondWith" / "Internet connection".
+  - **Debug page:** `/debug/crash?kind=network` reproduces the screen on a phone.
