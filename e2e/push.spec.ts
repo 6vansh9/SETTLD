@@ -127,8 +127,8 @@ test("expense and nudge pushes reach the right phone with the right words", asyn
     expect(nudges()[0].body).toContain("₹1,200");
     expect(ps.got.some((p) => p.device === "aman")).toBe(false); // never the person who acted
 
-    // The button counts down (2-minute cooldown) instead of sending again.
-    const again = aman.page.getByRole("button", { name: /nudge again in [12]:[0-5]\d/i }).first();
+    // The button counts down (1-hour cooldown) instead of sending again.
+    const again = aman.page.getByRole("button", { name: /nudge again in (60:00|59:[0-5]\d)/i }).first();
     await expect(again).toBeDisabled();
     const t1 = await again.textContent();
     await aman.page.waitForTimeout(2100);
@@ -137,7 +137,7 @@ test("expense and nudge pushes reach the right phone with the right words", asyn
     // Webhook broken (as it may be in production) and Riya on "Only money stuff": the nudge still
     // arrives, through the app's direct call.
     psql(`delete from private.app_settings where key in ('push_webhook_url', 'push_webhook_secret');
-          update public.nudges set sent_at = sent_at - interval '3 minutes' where group_id = '${groupId}';
+          update public.nudges set sent_at = sent_at - interval '61 minutes' where group_id = '${groupId}';
           update public.group_members set notify_level = 'money' where group_id = '${groupId}' and display_name = 'Riya';`);
     await aman.page.reload();
     await aman.page.getByRole("tab", { name: "Balances" }).click();

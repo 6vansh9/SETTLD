@@ -32,29 +32,29 @@ exception when others then
   end;
 end $$;
 
-insert into r(what, ok) select 'rules', case when public.nudge_rules() = '{"cooldown_seconds":120,"daily_cap":10,"polite_until":3,"cheeky_until":6}'::jsonb then 'pass' else 'FAIL ' || public.nudge_rules()::text end;
+insert into r(what, ok) select 'rules', case when public.nudge_rules() = '{"cooldown_seconds":3600,"daily_cap":10,"polite_until":3,"cheeky_until":6}'::jsonb then 'pass' else 'FAIL ' || public.nudge_rules()::text end;
 -- 10 nudges: levels 1,1,1,2,2,2,3,3,3,3. Right after the first, a second is refused; after
--- 1 minute still refused; after 2 minutes it succeeds. The 11th in 24 h hits the daily cap.
+-- 30 minutes still refused; after 1 hour it succeeds. The 11th in 24 h hits the daily cap.
 do $$
 declare want int[] := array[1,1,2,2,2,3,3,3,3]; got text; i int;
 begin
-  for i in 1..9 loop -- with the extra 2-minute nudge at i = 1: 10 nudges, levels 1,1,1,2,2,2,3,3,3,3
+  for i in 1..9 loop -- with the extra 1-hour nudge at i = 1: 10 nudges, levels 1,1,1,2,2,2,3,3,3,3
     got := pg_temp.nudge();
     insert into r(what, ok) values ('nudge ' || i, case when got = 'level ' || want[i] then 'pass' else 'FAIL ' || got end);
     if i = 1 then
       got := pg_temp.nudge();
       insert into r(what, ok) values ('cooldown: friendly message + retry time in detail',
-        case when got ~ '^error: Nudge again in [12]:[0-5][0-9] \| retry_at=\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$' then 'pass' else 'FAIL ' || got end);
-      -- 1 minute later: still refused.
-      perform pg_temp.back(60);
+        case when got ~ '^error: Nudge again in (59:[0-5][0-9]|60:00) \| retry_at=\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$' then 'pass' else 'FAIL ' || got end);
+      -- 30 minutes later: still refused.
+      perform pg_temp.back(1800);
       got := pg_temp.nudge();
-      insert into r(what, ok) values ('after 1 minute: still refused', case when got ~ '^error: Nudge again in (0:[0-5][0-9]|1:00) ' then 'pass' else 'FAIL ' || got end);
-      -- Just over 2 minutes after the first: the second nudge goes through.
-      perform pg_temp.back(61);
+      insert into r(what, ok) values ('after 30 minutes: still refused', case when got ~ '^error: Nudge again in (29:[0-5][0-9]|30:00) ' then 'pass' else 'FAIL ' || got end);
+      -- Just over 1 hour after the first: the second nudge goes through.
+      perform pg_temp.back(1801);
       got := pg_temp.nudge();
-      insert into r(what, ok) values ('after 2 minutes: second nudge succeeds', case when got = 'level 1' then 'pass' else 'FAIL ' || got end);
+      insert into r(what, ok) values ('after 1 hour: second nudge succeeds', case when got = 'level 1' then 'pass' else 'FAIL ' || got end);
     end if;
-    perform pg_temp.back(180);
+    perform pg_temp.back(3700);
   end loop;
   got := pg_temp.nudge();
   insert into r(what, ok) values ('daily cap: friendly message + retry time', case when got ~ '^error: Daily nudge limit reached · try again tomorrow \| retry_at=[0-9]{4}-' then 'pass' else 'FAIL ' || got end);
@@ -64,11 +64,11 @@ begin
   -- Riya pays back at least the last nudge's amount → the count restarts.
   insert into public.settlements (group_id, from_member, to_member, amount, currency, amount_base, method, status)
   select gid, riya, aman, 100, 'INR', 100, 'cash', 'confirmed' from p;
-  perform pg_temp.back(180);
+  perform pg_temp.back(3700);
   got := pg_temp.nudge();
   insert into r(what, ok) values ('after settling up → polite again', case when got = 'level 1' then 'pass' else 'FAIL ' || got end);
   -- Polite-only groups always send level 1.
-  perform pg_temp.back(180); perform pg_temp.nudge(); perform pg_temp.back(180); perform pg_temp.nudge(); perform pg_temp.back(180);
+  perform pg_temp.back(3700); perform pg_temp.nudge(); perform pg_temp.back(3700); perform pg_temp.nudge(); perform pg_temp.back(3700);
   update public.groups set nudge_mode = 'polite' where id = (select gid from p);
   got := pg_temp.nudge();
   insert into r(what, ok) values ('polite only', case when got = 'level 1' then 'pass' else 'FAIL ' || got end);

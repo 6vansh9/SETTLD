@@ -29,15 +29,17 @@ describe("nudge templates", () => {
     expect(randomTemplate(() => 0.999)).toBe(9);
   });
 
-  const rules = { cooldown_seconds: 120, daily_cap: 10, polite_until: 3, cheeky_until: 6 };
+  const rules = { cooldown_seconds: 3600, daily_cap: 10, polite_until: 3, cheeky_until: 6 };
   const at = (iso: string) => Date.parse(iso);
 
-  it("2-minute cooldown per person, then ready again", () => {
+  it("1-hour cooldown per person, then ready again", () => {
     const now = at("2026-10-05T12:00:00Z");
     expect(nudgeAvailability([], rules, now)).toEqual({ state: "ready" });
-    expect(nudgeAvailability(["2026-10-05T11:58:00Z"], rules, now)).toEqual({ state: "ready" });
-    const a = nudgeAvailability(["2026-10-05T11:58:30Z", "2026-10-05T11:40:00Z"], rules, now);
-    expect(a).toEqual({ state: "cooldown", at: at("2026-10-05T12:00:30Z") });
+    expect(nudgeAvailability(["2026-10-05T10:59:00Z"], rules, now)).toEqual({ state: "ready" });
+    const a = nudgeAvailability(["2026-10-05T11:58:30Z", "2026-10-05T10:40:00Z"], rules, now);
+    expect(a).toEqual({ state: "cooldown", at: at("2026-10-05T12:58:30Z") });
+    expect(countdown(a.state === "cooldown" ? a.at : 0, now)).toBe("58:30");
+    expect(countdown(now + 3_600_000, now)).toBe("60:00");
     expect(countdown(at("2026-10-05T12:01:42Z"), now)).toBe("1:42");
     expect(countdown(at("2026-10-05T12:00:00.200Z"), now)).toBe("0:01"); // rounds up: never shows 0:00 while blocked
     expect(countdown(now - 5, now)).toBe("0:00");

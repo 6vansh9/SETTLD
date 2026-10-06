@@ -515,3 +515,16 @@
 - **Tests:**
   - Unit: one push to the receiver; All/Only money send, Off blocks.
   - E2E `push.spec.ts`: both paths on → exactly 1 nudge push, to the receiver only; webhook removed + receiver on Only money → still delivered.
+
+### Portfolio prep: 1-hour nudge cooldown, README, history secret scan (2026-10-06)
+
+- **Nudge cooldown 1 hour** (cap still 10/day):
+  - `nudge_rules()` in `0014_nudge_cooldown_patch.sql` now has `cooldown_seconds` 3600. Re-run 0014, or just its `nudge_rules()` block, to apply.
+  - `countdown` shows "60:00 … 0:01" for up to an hour, "x h y min" beyond.
+  - Tests updated: `0014_checks.sql` (refused after 30 min, succeeds after 1 h; 17 pass), unit, and E2E (`push.spec.ts` passes).
+- **README.md** replaces the create-next-app boilerplate: pitch, live demo, features, stack, Mermaid architecture, money math, security, setup, env var names. `docs/screenshots/` holds 9 placeholder PNGs and a shot list.
+- **Git history secret scan** (all 21+ commits, all refs):
+  - Every non-public `.env.local` value was searched literally: none ever committed.
+  - No JWTs, no Resend keys, no `.env` files except `.env.local.example` (placeholders only).
+  - The only `push_webhook_secret` literal is the E2E template variable.
+  - Safe to make the repo public.

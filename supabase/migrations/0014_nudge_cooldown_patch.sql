@@ -3,7 +3,7 @@
 --
 --  • Drops every overload of public.send_nudge, any trigger on public.nudges, any extra unique
 --    index on it and any check constraint on its sent_at, so no old rule can survive.
---  • public.nudge_rules(): the one place for the limits (2-minute cooldown, 10 per person per
+--  • public.nudge_rules(): the one place for the limits (1-hour cooldown, 10 per person per
 --    rolling 24 h, escalation 1–3 polite / 4–6 cheeky / 7+ dramatic).
 --  • public.send_nudge: enforces them with friendly errors ("Nudge again in 1:42",
 --    "Daily nudge limit reached · try again tomorrow"); the exact retry time is in the error
@@ -47,7 +47,7 @@ immutable
 set search_path = ''
 as $$
   select jsonb_build_object(
-    'cooldown_seconds', 120, -- one nudge per person (from me to them) every 2 minutes
+    'cooldown_seconds', 3600, -- one nudge per person (from me to them) every hour
     'daily_cap', 10,         -- max nudges per person per rolling 24 hours from the same sender
     'polite_until', 3,       -- nudges 1–3 are polite (level 1)
     'cheeky_until', 6        -- nudges 4–6 are cheeky (level 2); 7+ dramatic (level 3)
@@ -177,7 +177,7 @@ grant execute on function public.send_nudge(uuid, bigint, integer) to authentica
 notify pgrst, 'reload schema';
 
 -- Result panel: one row per check, all should say ok.
-select 'nudge_rules' as check, case when public.nudge_rules() ->> 'cooldown_seconds' = '120' and public.nudge_rules() ->> 'daily_cap' = '10' then 'ok' else 'CHECK: ' || public.nudge_rules()::text end as result
+select 'nudge_rules' as check, case when public.nudge_rules() ->> 'cooldown_seconds' = '3600' and public.nudge_rules() ->> 'daily_cap' = '10' then 'ok' else 'CHECK: ' || public.nudge_rules()::text end as result
 union all
 select 'send_nudge uses nudge_rules (one version)', case when count(*) = 1 and bool_and(prosrc like '%nudge_rules()%') and not bool_or(prosrc like '%again at%') then 'ok' else 'NOT OK' end
 from pg_proc where proname = 'send_nudge' and pronamespace = 'public'::regnamespace

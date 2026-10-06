@@ -105,10 +105,10 @@ export function nudgeAvailability(sentAts: readonly string[], rules: NudgeRules 
   return last !== undefined && at > now ? { state: "cooldown", at } : { state: "ready" };
 }
 
-/** "1:42" until `at` (rounded up to the next second); past an hour "4 h 12 min". Relative, so always in the phone's own time. */
+/** "1:42" / "59:30" until `at` (rounded up to the next second); over an hour "4 h 12 min". Relative, so always in the phone's own time. */
 export function countdown(at: number, now: number = Date.now()): string {
   const secs = Math.max(0, Math.ceil((at - now) / 1000));
-  if (secs >= 3600) {
+  if (secs > 3600) {
     const mins = Math.ceil(secs / 60);
     return `${Math.floor(mins / 60)} h ${mins % 60} min`;
   }

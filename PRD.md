@@ -296,9 +296,9 @@ Poster-style card: payer → receiver in Anton, amount in Jersey 10, group name 
 - Nudge button on any balance row where someone owes you. Sends a push notification and an in-app banner.
 - Tone escalates by count: nudges 1–3 polite, 4–6 cheeky, 7+ dramatic. The count restarts once they've settled up (they paid me back at least a nudge's amount after it). Example level 3: "Aman. It's been 9 days. The ₹340 misses you."
 - Also on the Debt Graph mini card. Ghosts can't be nudged. Days = how long the oldest unpaid shared expense has been owed (since their last payment to you).
-- One nudge per person (from me to them) every 2 minutes, and at most 10 per person per rolling 24 hours ("Daily nudge limit reached · try again tomorrow"). Enforced by the database in `send_nudge`. The Nudge button counts down live ("Nudge again in 1:42") and re-enables itself.
+- One nudge per person (from me to them) every hour, and at most 10 per person per rolling 24 hours ("Daily nudge limit reached · try again tomorrow"). Enforced by the database in `send_nudge`. The Nudge button counts down live ("Nudge again in 1:42") and re-enables itself.
 - The limits (cooldown, daily cap, escalation thresholds) live in one place: the database function `public.nudge_rules()` (`0014_nudge_cooldown_patch.sql`). The app reads it for the countdown, so changing it needs no deploy.
-- Never show raw timestamps. A refused nudge says "Nudge again in 1:42" ("4 h 12 min" past an hour), counted down on the phone from the retry time in the error detail. Past the cap: "Daily nudge limit reached · try again tomorrow". The button shows the same text.
+- Never show raw timestamps. A refused nudge says "Nudge again in 42:15" ("4 h 12 min" over an hour), counted down on the phone from the retry time in the error detail. Past the cap: "Daily nudge limit reached · try again tomorrow". The button shows the same text.
 - Group setting: Nudges On / Polite only (always level 1) / Off.
 - About 10 templates per level, picked at random, with name, amount, and days filled in.
 
